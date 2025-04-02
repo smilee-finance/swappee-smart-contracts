@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
 interface IOBRouter {
     /// @dev Contains all information needed to describe the input and output for a swap
     struct permit2Info {
