@@ -4,8 +4,9 @@ pragma solidity ^0.8.28;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistributor.sol";
 import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
+import {IIncentivesDumper} from "./interfaces/IIncentivesDumper.sol";
 
-contract IncentivesDumper is Ownable {
+contract IncentivesDumper is IIncentivesDumper, Ownable {
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
 
     address public bgtIncentivesDistributor;
@@ -15,45 +16,9 @@ contract IncentivesDumper is Ownable {
 
     mapping(address => uint256) public amounts;
 
-    error AddressZero();
-    error InvalidSwaps();
-    error InvalidAmount();
-    error InsufficientBalance();
-    error TransferFailed();
-    error InvalidPercentageFee();
-
-    event BgtIncentivesDistributorUpdated(address indexed oldBgtIncentivesDistributor, address indexed newBgtIncentivesDistributor);
-    event AggregatorUpdated(address indexed oldAggregator, address indexed newAggregator);
-    event PercentageFeeUpdated(uint16 percentageFee);
-    event Withdraw(address indexed user, uint256 amount);
-    event WithdrawFees(address indexed user, uint256 amount);
-    event Accounted(address indexed user, uint256 amount);
     enum Type {
         CLAIM_INCENTIVES,
         SWAP_TOKENS
-    }
-
-    struct RouterParams {
-        IOBRouter.swapTokenInfo swaps;
-        bytes pathDefinition;
-        address executor;
-        uint32 referralCode;
-    }
-
-    struct UserInfo {
-        address user;
-        uint256 amountIn;
-    }
-
-    struct SwapInfo {
-        uint256 totalAmountIn;
-        RouterParams routerParams;
-        UserInfo[] userInfos;
-    }
-
-    struct ClaimAndSwap {
-        IBGTIncentiveDistributor.Claim[] claims;
-        SwapInfo[] swapInfos;
     }
 
     constructor(address _bgtIncentivesDistributor, address _aggregator) Ownable(msg.sender) {
