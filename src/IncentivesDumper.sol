@@ -98,15 +98,15 @@ contract IncentivesDumper is Ownable {
         for (uint256 i = 0; i < swapInfos.length; i++) {
             routerParams = swapInfos[i].routerParams;
             uint256 amountOut = _swapToken(routerParams.swaps, routerParams.pathDefinition, routerParams.executor, routerParams.referralCode);
+            _accountPerUser(swapInfos[i].userInfos, swapInfos[i].totalAmountIn, amountOut);
+        }
+    }
 
-            UserInfo[] memory userInfos = swapInfos[i].userInfos;
-            uint256 userPercentage;
-            uint256 totalAmountIn = swapInfos[i].totalAmountIn;
-            for (uint256 j = 0; j < userInfos.length; j++) {
-                // accounting for user
-                userPercentage = (userInfos[j].amountIn * 1e18 / totalAmountIn);
-                amounts[userInfos[j].user] += amountOut * userPercentage / 100;
-            }
+    function _accountPerUser(UserInfo[] memory userInfos, uint256 totalAmountIn, uint256 amountOut) internal {
+        uint256 userPercentage;
+        for (uint256 i = 0; i < userInfos.length; i++) {
+            userPercentage = userInfos[i].amountIn * 1e18 / totalAmountIn;
+            amounts[userInfos[i].user] += (amountOut * userPercentage) / 1e18;
         }
     }
 
