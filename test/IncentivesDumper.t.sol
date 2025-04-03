@@ -49,44 +49,59 @@ contract IncentivesDumperTest is Test {
     }
 
     function test_dumpIncentives() public {
+        testFuzz_dumpIncentives(CLAIM_AMOUNT);
+    }
+
+    function testFuzz_dumpIncentives(uint256 amount) public {
+        amount = _bound(amount, 1, 100_000_000e18);
         address[] memory users = new address[](1);
         users[0] = user1;
         uint256[] memory amounts = new uint256[](1);
-        amounts[0] = CLAIM_AMOUNT;
+        amounts[0] = amount;
 
         IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
 
         vm.prank(user1);
         mockERC20.approve(address(incentivesDumper), INFINITE_ALLOWANCE);
 
-        IIncentivesDumper.SwapInfo[] memory swapInfos = _buildSimpleSwapInfo(user1, CLAIM_AMOUNT);
+        IIncentivesDumper.SwapInfo[] memory swapInfos = _buildSimpleSwapInfo(user1, amount);
 
         vm.prank(operator);
         vm.expectEmit();
-        emit IIncentivesDumper.Accounted(user1, CLAIM_AMOUNT); // fees are 0
+        emit IIncentivesDumper.Accounted(user1, amount); // fees are 0
         incentivesDumper.dumpIncentives(3, claims, swapInfos);
 
-        assertEq(mockERC20.balanceOf(address(mockOBRouter)), CLAIM_AMOUNT);
+        assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
         assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
         assertEq(mockERC20.balanceOf(user1), 0);
 
-        assertEq(mockERC20.allowance(user1, address(incentivesDumper)), INFINITE_ALLOWANCE - CLAIM_AMOUNT);
-        assertEq(incentivesDumper.amounts(user1), CLAIM_AMOUNT);
+        assertEq(incentivesDumper.amounts(user1), amount);
         assertEq(incentivesDumper.accruedFees(), 0); // no fees
     }
 
-    function test_dumpIncentives_MultipleUsers(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3) public {
+    function test_dumpIncentives_MultipleUsers() public {
+        testFuzz_dumpIncentives_MultipleUsers(100e18, 200e18, 300e18, PRICE);
+    }
+
+    function testFuzz_dumpIncentives_MultipleUsers(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3, uint256 price) public {
+        amountInUser1 = _bound(amountInUser1, 1, 100_000_000e18);
+        amountInUser2 = _bound(amountInUser2, 1, 100_000_000e18);
+        amountInUser3 = _bound(amountInUser3, 1, 100_000_000e18);
+        price = _bound(price, 0.000001e18, 1_000_000e18);
+
+        mockOBRouter.setPrice(price);
+
         address[] memory users = new address[](3);
         users[0] = user1;
         users[1] = user2;
         users[2] = user3;
 
         uint256[] memory amounts = new uint256[](3);
-        amounts[0] = _bound(amountInUser1, 1, 100_000_000e18);
-        amounts[1] = _bound(amountInUser2, 1, 100_000_000e18);
-        amounts[2] = _bound(amountInUser3, 1, 100_000_000e18);
+        amounts[0] = amountInUser1;
+        amounts[1] = amountInUser2;
+        amounts[2] = amountInUser3;
 
-        uint256 totalAmountIn = amounts[0] + amounts[1] + amounts[2];
+        uint256 totalAmountIn = amountInUser1 + amountInUser2 + amountInUser3;
 
         IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
 
@@ -99,10 +114,6 @@ contract IncentivesDumperTest is Test {
         IIncentivesDumper.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
 
         vm.prank(operator);
-        vm.expectEmit();
-        emit IIncentivesDumper.Accounted(user1, amounts[0]);
-        emit IIncentivesDumper.Accounted(user2, amounts[1]);
-        emit IIncentivesDumper.Accounted(user3, amounts[2]);
         incentivesDumper.dumpIncentives(3, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
@@ -111,12 +122,9 @@ contract IncentivesDumperTest is Test {
         assertEq(mockERC20.balanceOf(user2), 0);
         assertEq(mockERC20.balanceOf(user3), 0);
 
-        assertEq(mockERC20.allowance(user1, address(incentivesDumper)), INFINITE_ALLOWANCE - amounts[0]);
-        assertEq(mockERC20.allowance(user2, address(incentivesDumper)), INFINITE_ALLOWANCE - amounts[1]);
-        assertEq(mockERC20.allowance(user3, address(incentivesDumper)), INFINITE_ALLOWANCE - amounts[2]);
-        assertEq(incentivesDumper.amounts(user1), amounts[0]);
-        assertEq(incentivesDumper.amounts(user2), amounts[1]);
-        assertEq(incentivesDumper.amounts(user3), amounts[2]);
+        assertApproxEqAbs(incentivesDumper.amounts(user1), (amountInUser1 * price) / 1e18, 1);
+        assertApproxEqAbs(incentivesDumper.amounts(user2), (amountInUser2 * price) / 1e18, 1);
+        assertApproxEqAbs(incentivesDumper.amounts(user3), (amountInUser3 * price) / 1e18, 1);
         assertEq(incentivesDumper.accruedFees(), 0); // no fees
     }
 

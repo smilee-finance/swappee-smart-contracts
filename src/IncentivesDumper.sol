@@ -123,7 +123,7 @@ contract IncentivesDumper is IIncentivesDumper, AccessControl {
         for (uint256 i = 0; i < userInfos.length; i++) {
             // Scale by WAD^2 (1e36) to maintain precision for very small percentages
             // WAD is the standard scaling factor (1e18) used in FixedPointMathLib
-            userPercentage = FixedPointMathLib.mulDivUp(userInfos[i].amountIn, 1e36, totalAmountIn);
+            userPercentage = FixedPointMathLib.fullMulDiv(userInfos[i].amountIn, 1e36, totalAmountIn);
             userAmount = FixedPointMathLib.fullMulDiv(amountOut, userPercentage, 1e36);
             amounts[userInfos[i].user] += userAmount;
 
