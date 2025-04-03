@@ -23,6 +23,7 @@ contract IncentivesDumperTest is Test {
     MockBGTIncentiveDistributor public mockBGTIncentiveDistributor;
 
     address public owner = makeAddr("owner");
+    address public operator = makeAddr("operator");
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
     address public user3 = makeAddr("user3");
@@ -42,8 +43,10 @@ contract IncentivesDumperTest is Test {
         mockBGTIncentiveDistributor.setAmountToTransfer(CLAIM_AMOUNT);
         mockERC20.mint(address(mockBGTIncentiveDistributor), type(uint256).max);
 
-        vm.prank(owner);
+        vm.startPrank(owner);
         incentivesDumper = new IncentivesDumper(address(mockBGTIncentiveDistributor), address(mockOBRouter));
+        incentivesDumper.grantRole(incentivesDumper.OPERATOR_ROLE(), operator);
+        vm.stopPrank();
     }
 
     function test_dumpIncentives() public {
@@ -57,7 +60,7 @@ contract IncentivesDumperTest is Test {
 
         IIncentivesDumper.SwapInfo[] memory swapInfos = _buildSimpleSwapInfo(user1, CLAIM_AMOUNT);
 
-        vm.prank(owner);
+        vm.prank(operator);
         vm.expectEmit();
         emit IIncentivesDumper.Accounted(user1, CLAIM_AMOUNT); // fees are 0
         incentivesDumper.dumpIncentives(3, claims, swapInfos);

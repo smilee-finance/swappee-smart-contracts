@@ -1,14 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistributor.sol";
 import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
 import {IIncentivesDumper} from "./interfaces/IIncentivesDumper.sol";
 
-contract IncentivesDumper is IIncentivesDumper, Ownable {
+contract IncentivesDumper is IIncentivesDumper, AccessControl {
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
 
     address public bgtIncentivesDistributor;
@@ -20,15 +21,18 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
 
     receive() external payable {}
 
-    constructor(address _bgtIncentivesDistributor, address _aggregator) Ownable(msg.sender) {
+    constructor(address _bgtIncentivesDistributor, address _aggregator) {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
         if (_isAddressZero(_aggregator)) revert AddressZero();
 
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
         aggregator = _aggregator;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(OPERATOR_ROLE, msg.sender);
     }
 
-    function setBgtIncentivesDistributor(address _bgtIncentivesDistributor) public onlyOwner {
+    function setBgtIncentivesDistributor(address _bgtIncentivesDistributor) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
         address oldBgtIncentivesDistributor = bgtIncentivesDistributor;
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
@@ -36,7 +40,7 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
         emit BgtIncentivesDistributorUpdated(oldBgtIncentivesDistributor, _bgtIncentivesDistributor);
     }
 
-    function setAggregator(address _aggregator) public onlyOwner {
+    function setAggregator(address _aggregator) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_isAddressZero(_aggregator)) revert AddressZero();
         address oldAggregator = aggregator;
         aggregator = _aggregator;
@@ -44,14 +48,14 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
         emit AggregatorUpdated(oldAggregator, _aggregator);
     }
 
-    function setPercentageFee(uint16 _percentageFee) public onlyOwner {
+    function setPercentageFee(uint16 _percentageFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_percentageFee > ONE_HUNDRED_PERCENT) revert InvalidPercentageFee();
         percentageFee = _percentageFee;
 
         emit PercentageFeeUpdated(_percentageFee);
     }
 
-    function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyOwner {
+    function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyRole(OPERATOR_ROLE) {
         if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
             _claimIncentives(claims);
             // Pull tokens from users after claim
@@ -81,7 +85,7 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
         emit Withdraw(msg.sender, amount);
     }
 
-    function withdrawFees(uint256 amount) public onlyOwner {
+    function withdrawFees(uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (accruedFees < amount) revert InvalidAmount();
 
         unchecked {
@@ -98,7 +102,7 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
         IBGTIncentiveDistributor(bgtIncentivesDistributor).claim(claims);
     }
 
-    function _swapTokens(SwapInfo[] memory swapInfos) internal onlyOwner {
+    function _swapTokens(SwapInfo[] memory swapInfos) internal {
         RouterParams memory routerParams;
         for (uint256 i = 0; i < swapInfos.length; i++) {
             routerParams = swapInfos[i].routerParams;
