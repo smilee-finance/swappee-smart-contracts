@@ -21,8 +21,7 @@ contract IncentivesDumper is Ownable {
 
     enum Type {
         CLAIM_INCENTIVES,
-        SWAP_TOKENS,
-        CLAIM_AND_SWAP
+        SWAP_TOKENS
     }
 
     struct RouterParams {
@@ -66,15 +65,15 @@ contract IncentivesDumper is Ownable {
         aggregator = _aggregator;
     }
 
-    function dumpIncentives(Type _type, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyOwner {
-        if (_type == Type.CLAIM_INCENTIVES) {
+    function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyOwner {
+        if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
             _claimIncentives(claims);
-        } else if (_type == Type.SWAP_TOKENS) {
+        }
+
+        if (_shouldDo(action, Type.SWAP_TOKENS)) {
             // TODO: Pull token from user and approve aggregator
             _swapTokens(swapInfos);
             // TODO: Account for the amount of tokens in the contract
-        } else if (_type == Type.CLAIM_AND_SWAP) {
-            _claimAndSwap(claims, swapInfos);
         }
     }
 
@@ -88,11 +87,6 @@ contract IncentivesDumper is Ownable {
         if (!success) revert TransferFailed();
 
         emit Withdraw(msg.sender, amount);
-    }
-
-    function _claimAndSwap(IBGTIncentiveDistributor.Claim[] memory claims, SwapInfo[] memory swapInfos) internal onlyOwner {
-        _claimIncentives(claims);
-        _swapTokens(swapInfos);
     }
 
     function _claimIncentives(IBGTIncentiveDistributor.Claim[] memory claims) internal {
@@ -114,6 +108,10 @@ contract IncentivesDumper is Ownable {
                 amounts[userInfos[j].user] += amountOut * userPercentage / 100;
             }
         }
+    }
+
+    function _shouldDo(uint8 input, Type action) internal pure returns (bool) {
+        return (input & (input << uint8(action))) != 0;
     }
 
     function _swapToken(IOBRouter.swapTokenInfo memory swap, bytes memory pathDefinition, address executor, uint32 referralCode) internal returns (uint256) {
