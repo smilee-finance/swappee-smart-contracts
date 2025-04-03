@@ -6,8 +6,12 @@ import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistr
 import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
 
 contract IncentivesDumper is Ownable {
+    uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
+
     address public bgtIncentivesDistributor;
     address public aggregator;
+    uint16 public percentageFee;
+    uint256 public accruedFees;
 
     mapping(address => uint256) public amounts;
 
@@ -16,9 +20,10 @@ contract IncentivesDumper is Ownable {
     error InvalidAmount();
     error InsufficientBalance();
     error TransferFailed();
+    error InvalidPercentageFee();
 
     event Withdraw(address indexed user, uint256 amount);
-
+    event WithdrawFees(address indexed user, uint256 amount);
     enum Type {
         CLAIM_INCENTIVES,
         SWAP_TOKENS
@@ -65,15 +70,19 @@ contract IncentivesDumper is Ownable {
         aggregator = _aggregator;
     }
 
+    function setPercentageFee(uint16 _percentageFee) public onlyOwner {
+        if (_percentageFee > ONE_HUNDRED_PERCENT) revert InvalidPercentageFee();
+        percentageFee = _percentageFee;
+    }
+
     function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyOwner {
         if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
             _claimIncentives(claims);
+            // TBD: As soon as the claim is done, we should pull the tokens from the user and approve the aggregator
         }
 
         if (_shouldDo(action, Type.SWAP_TOKENS)) {
-            // TODO: Pull token from user and approve aggregator
             _swapTokens(swapInfos);
-            // TODO: Account for the amount of tokens in the contract
         }
     }
 
@@ -92,6 +101,19 @@ contract IncentivesDumper is Ownable {
         emit Withdraw(msg.sender, amount);
     }
 
+    function withdrawFees(uint256 amount) public onlyOwner {
+        if (accruedFees < amount) revert InvalidAmount();
+
+        unchecked {
+            accruedFees -= amount;
+        }
+
+        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        if (!success) revert TransferFailed();
+
+        emit WithdrawFees(msg.sender, amount);
+    }
+
     function _claimIncentives(IBGTIncentiveDistributor.Claim[] memory claims) internal {
         IBGTIncentiveDistributor(bgtIncentivesDistributor).claim(claims);
     }
@@ -101,7 +123,10 @@ contract IncentivesDumper is Ownable {
         for (uint256 i = 0; i < swapInfos.length; i++) {
             routerParams = swapInfos[i].routerParams;
             uint256 amountOut = _swapToken(routerParams.swaps, routerParams.pathDefinition, routerParams.executor, routerParams.referralCode);
-            _accountPerUser(swapInfos[i].userInfos, swapInfos[i].totalAmountIn, amountOut);
+            uint256 fee = amountOut * (percentageFee) / ONE_HUNDRED_PERCENT;
+            accruedFees += fee;
+
+            _accountPerUser(swapInfos[i].userInfos, swapInfos[i].totalAmountIn, amountOut - fee);
         }
     }
 
@@ -114,7 +139,7 @@ contract IncentivesDumper is Ownable {
     }
 
     function _shouldDo(uint8 input, Type action) internal pure returns (bool) {
-        return (input & (input << uint8(action))) != 0;
+        return (input & (1 << uint8(action))) != 0;
     }
 
     function _swapToken(IOBRouter.swapTokenInfo memory swap, bytes memory pathDefinition, address executor, uint32 referralCode) internal returns (uint256) {
