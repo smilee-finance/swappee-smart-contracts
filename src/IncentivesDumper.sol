@@ -82,7 +82,10 @@ contract IncentivesDumper is Ownable {
         if (amountToWithdraw < amount) revert InvalidAmount();
         if (amount > address(this).balance) revert InsufficientBalance();
 
-        amounts[msg.sender] -= amount;
+        unchecked {
+            amounts[msg.sender] -= amount;
+        }
+
         (bool success, ) = payable(msg.sender).call{value: amount}("");
         if (!success) revert TransferFailed();
 
