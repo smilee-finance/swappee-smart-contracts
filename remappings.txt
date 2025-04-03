@@ -2,3 +2,4 @@
 @openzeppelin/contracts-upgradeable/=node_modules/@openzeppelin/contracts-upgradeable/
 forge-std/=lib/forge-std/src/
 @mock/=test/mock/
+@solady/=node_modules/solady/src/

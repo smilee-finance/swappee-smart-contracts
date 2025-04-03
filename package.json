@@ -4,8 +4,9 @@
     "@types/bun": "latest",
     "typescript": "^5.0.0"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@openzeppelin/contracts": "^5.1.0",
-    "@openzeppelin/contracts-upgradeable": "^5.1.0"
+    "@openzeppelin/contracts-upgradeable": "^5.1.0",
+    "solady": "^0.1.14"
   }
 }

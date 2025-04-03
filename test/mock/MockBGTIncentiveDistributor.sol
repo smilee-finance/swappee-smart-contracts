@@ -13,18 +13,15 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor, Test {
         mockedToken = token;
     }
 
-    function setAmountToTransfer(uint256 amount) external {
-        amountToTransfer = amount;
-    }
-
     function getDummyClaims(
-        address[] memory accounts
-    ) public view returns (Claim[] memory) {
+        address[] memory accounts,
+        uint256[] memory amounts
+    ) public pure returns (Claim[] memory) {
         Claim[] memory claims = new Claim[](accounts.length);
         for (uint256 i = 0; i < accounts.length; i++) {
             claims[i] = Claim({
                 account: accounts[i],
-                amount: amountToTransfer,
+                amount: amounts[i],
                 identifier: bytes32(0),
                 merkleProof: new bytes32[](0)
             });

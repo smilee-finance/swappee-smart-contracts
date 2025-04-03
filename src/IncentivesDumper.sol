@@ -8,6 +8,8 @@ import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistr
 import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
 import {IIncentivesDumper} from "./interfaces/IIncentivesDumper.sol";
 
+import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+
 contract IncentivesDumper is IIncentivesDumper, AccessControl {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
@@ -108,7 +110,7 @@ contract IncentivesDumper is IIncentivesDumper, AccessControl {
             routerParams = swapInfos[i].routerParams;
             IERC20(swapInfos[i].inputToken).approve(aggregator, swapInfos[i].totalAmountIn);
             uint256 amountOut = _swapToken(routerParams.swaps, routerParams.pathDefinition, routerParams.executor, routerParams.referralCode);
-            uint256 fee = amountOut * (percentageFee) / ONE_HUNDRED_PERCENT;
+            uint256 fee = FixedPointMathLib.fullMulDiv(amountOut, percentageFee, ONE_HUNDRED_PERCENT);
             accruedFees += fee;
 
             _accountPerUser(swapInfos[i].userInfos, swapInfos[i].totalAmountIn, amountOut - fee);
@@ -119,8 +121,10 @@ contract IncentivesDumper is IIncentivesDumper, AccessControl {
         uint256 userPercentage;
         uint256 userAmount;
         for (uint256 i = 0; i < userInfos.length; i++) {
-            userPercentage = userInfos[i].amountIn * 1e18 / totalAmountIn;
-            userAmount = (amountOut * userPercentage) / 1e18;
+            // Scale by WAD^2 (1e36) to maintain precision for very small percentages
+            // WAD is the standard scaling factor (1e18) used in FixedPointMathLib
+            userPercentage = FixedPointMathLib.mulDivUp(userInfos[i].amountIn, 1e36, totalAmountIn);
+            userAmount = FixedPointMathLib.fullMulDiv(amountOut, userPercentage, 1e36);
             amounts[userInfos[i].user] += userAmount;
 
             emit Accounted(userInfos[i].user, userAmount);
