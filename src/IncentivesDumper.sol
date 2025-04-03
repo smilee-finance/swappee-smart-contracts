@@ -22,8 +22,12 @@ contract IncentivesDumper is Ownable {
     error TransferFailed();
     error InvalidPercentageFee();
 
+    event BgtIncentivesDistributorUpdated(address indexed oldBgtIncentivesDistributor, address indexed newBgtIncentivesDistributor);
+    event AggregatorUpdated(address indexed oldAggregator, address indexed newAggregator);
+    event PercentageFeeUpdated(uint16 percentageFee);
     event Withdraw(address indexed user, uint256 amount);
     event WithdrawFees(address indexed user, uint256 amount);
+    event Accounted(address indexed user, uint256 amount);
     enum Type {
         CLAIM_INCENTIVES,
         SWAP_TOKENS
@@ -62,17 +66,25 @@ contract IncentivesDumper is Ownable {
 
     function setBgtIncentivesDistributor(address _bgtIncentivesDistributor) public onlyOwner {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
+        address oldBgtIncentivesDistributor = bgtIncentivesDistributor;
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
+
+        emit BgtIncentivesDistributorUpdated(oldBgtIncentivesDistributor, _bgtIncentivesDistributor);
     }
 
     function setAggregator(address _aggregator) public onlyOwner {
         if (_isAddressZero(_aggregator)) revert AddressZero();
+        address oldAggregator = aggregator;
         aggregator = _aggregator;
+
+        emit AggregatorUpdated(oldAggregator, _aggregator);
     }
 
     function setPercentageFee(uint16 _percentageFee) public onlyOwner {
         if (_percentageFee > ONE_HUNDRED_PERCENT) revert InvalidPercentageFee();
         percentageFee = _percentageFee;
+
+        emit PercentageFeeUpdated(_percentageFee);
     }
 
     function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyOwner {
@@ -132,9 +144,13 @@ contract IncentivesDumper is Ownable {
 
     function _accountPerUser(UserInfo[] memory userInfos, uint256 totalAmountIn, uint256 amountOut) internal {
         uint256 userPercentage;
+        uint256 userAmount;
         for (uint256 i = 0; i < userInfos.length; i++) {
             userPercentage = userInfos[i].amountIn * 1e18 / totalAmountIn;
-            amounts[userInfos[i].user] += (amountOut * userPercentage) / 1e18;
+            userAmount = (amountOut * userPercentage) / 1e18;
+            amounts[userInfos[i].user] += userAmount;
+
+            emit Accounted(userInfos[i].user, userAmount);
         }
     }
 
