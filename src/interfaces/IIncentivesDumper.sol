@@ -18,6 +18,7 @@ interface IIncentivesDumper {
     }
 
     struct SwapInfo {
+        address inputToken;
         uint256 totalAmountIn;
         RouterParams routerParams;
         UserInfo[] userInfos;
@@ -26,6 +27,11 @@ interface IIncentivesDumper {
     struct ClaimAndSwap {
         IBGTIncentiveDistributor.Claim[] claims;
         SwapInfo[] swapInfos;
+    }
+
+    enum Type {
+        CLAIM_INCENTIVES,
+        SWAP_TOKENS
     }
 
     error AddressZero();

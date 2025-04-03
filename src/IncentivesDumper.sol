@@ -2,6 +2,8 @@
 pragma solidity ^0.8.28;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistributor.sol";
 import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
 import {IIncentivesDumper} from "./interfaces/IIncentivesDumper.sol";
@@ -16,10 +18,7 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
 
     mapping(address => uint256) public amounts;
 
-    enum Type {
-        CLAIM_INCENTIVES,
-        SWAP_TOKENS
-    }
+    receive() external payable {}
 
     constructor(address _bgtIncentivesDistributor, address _aggregator) Ownable(msg.sender) {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
@@ -55,7 +54,11 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
     function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyOwner {
         if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
             _claimIncentives(claims);
-            // TBD: As soon as the claim is done, we should pull the tokens from the user and approve the aggregator
+            // Pull tokens from users after claim
+            for (uint256 i = 0; i < claims.length; i++) {
+                address token = _getClaimToken(claims[i].identifier);
+                IERC20(token).transferFrom(claims[i].account, address(this), claims[i].amount);
+            }
         }
 
         if (_shouldDo(action, Type.SWAP_TOKENS)) {
@@ -99,6 +102,7 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
         RouterParams memory routerParams;
         for (uint256 i = 0; i < swapInfos.length; i++) {
             routerParams = swapInfos[i].routerParams;
+            IERC20(swapInfos[i].inputToken).approve(aggregator, swapInfos[i].totalAmountIn);
             uint256 amountOut = _swapToken(routerParams.swaps, routerParams.pathDefinition, routerParams.executor, routerParams.referralCode);
             uint256 fee = amountOut * (percentageFee) / ONE_HUNDRED_PERCENT;
             accruedFees += fee;
@@ -117,6 +121,10 @@ contract IncentivesDumper is IIncentivesDumper, Ownable {
 
             emit Accounted(userInfos[i].user, userAmount);
         }
+    }
+
+    function _getClaimToken(bytes32 identifier) internal view returns (address) {
+        return IBGTIncentiveDistributor(bgtIncentivesDistributor).rewards(identifier).token;
     }
 
     function _shouldDo(uint8 input, Type action) internal pure returns (bool) {

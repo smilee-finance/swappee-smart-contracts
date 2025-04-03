@@ -97,6 +97,13 @@ interface IBGTIncentiveDistributor {
     /*.•°:°.´+˚.*°.˚:*.´•*.+°.•°:´*.´•*.•°.•°:°.´:•˚°.*°.˚:*.´+°.•*/
 
     /**
+     * @notice Get the reward metadata for a given identifier
+     * @param identifier The identifier of the reward
+     * @return The reward metadata
+     */
+    function rewards(bytes32 identifier) external view returns (Reward memory);
+
+    /**
      * @notice Get the amount of incentive tokens held by the contract for a validator
      * @param pubkey The pubkey of the validator
      * @param token The address of the incentive token
