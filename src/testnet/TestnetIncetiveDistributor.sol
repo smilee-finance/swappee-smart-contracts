@@ -2,30 +2,18 @@
 pragma solidity ^0.8.20;
 
 import {IBGTIncentiveDistributor} from "../../src/interfaces/external/IBGTIncentiveDistributor.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {TestnetIncentiveToken} from "./TestnetIncentiveToken.sol";
 
-contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
-    address public mockedToken;
-    uint256 public amountToTransfer;
+contract TestnetIncetiveDistributor is IBGTIncentiveDistributor {
+    TestnetIncentiveToken public incentiveToken;
+    uint256 public delay;
 
-    function setMockedToken(address token) external {
-        mockedToken = token;
+    constructor() {
+        incentiveToken = new TestnetIncentiveToken("IncentiveToken", "IT", 18);
     }
 
-    function getDummyClaims(
-        address[] memory accounts,
-        uint256[] memory amounts
-    ) public pure returns (Claim[] memory) {
-        Claim[] memory claims = new Claim[](accounts.length);
-        for (uint256 i = 0; i < accounts.length; i++) {
-            claims[i] = Claim({
-                account: accounts[i],
-                amount: amounts[i],
-                identifier: bytes32(0),
-                merkleProof: new bytes32[](0)
-            });
-        }
-        return claims;
+    function getIncentiveToken() external view returns (address) {
+        return address(incentiveToken);
     }
 
     /// @dev Override to transfer tokens to users.
@@ -35,7 +23,7 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
         for (uint256 i = 0; i < claims.length; i++) {
             to = claims[i].account;
             amount = claims[i].amount;
-            IERC20(mockedToken).transfer(to, amount);
+            incentiveToken.mint(to, amount);
         }
     }
 
@@ -43,7 +31,7 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
         bytes32 /*identifier*/
     ) external view override returns (Reward memory) {
         return Reward({
-            token: mockedToken,
+            token: address(incentiveToken),
             merkleRoot: bytes32(0),
             proof: bytes32(0),
             activeAt: block.timestamp,
@@ -68,5 +56,18 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
 
     function updateRewardsMetadata(
         Distribution[] calldata _distributions
-    ) external override {}
+    ) external override {
+        uint256 activeAt;
+        for (uint256 i = 0; i < _distributions.length; i++) {
+            activeAt = block.timestamp + delay;
+            emit RewardMetadataUpdated(
+                _distributions[i].identifier,
+                _distributions[i].pubkey,
+                _distributions[i].token,
+                _distributions[i].merkleRoot,
+                _distributions[i].proof,
+                activeAt
+            );
+        }
+    }
 }
