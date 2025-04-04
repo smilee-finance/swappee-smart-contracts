@@ -15,6 +15,9 @@ contract IncentivesDumperTest is Test {
     uint256 public constant PRICE = 1e18; // incentives 1 : 1 BERA
     uint256 public constant CLAIM_AMOUNT = 100e18;
     uint256 public constant INFINITE_ALLOWANCE = type(uint256).max - 1;
+    uint8 public constant TYPE = 3; // 00000011
+    uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
+    uint16 public constant FEE = 1000; // 10%
 
     IncentivesDumper public incentivesDumper;
 
@@ -69,7 +72,7 @@ contract IncentivesDumperTest is Test {
         vm.prank(operator);
         vm.expectEmit();
         emit IIncentivesDumper.Accounted(user1, amount); // fees are 0
-        incentivesDumper.dumpIncentives(3, claims, swapInfos);
+        incentivesDumper.dumpIncentives(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
         assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
@@ -114,7 +117,7 @@ contract IncentivesDumperTest is Test {
         IIncentivesDumper.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
 
         vm.prank(operator);
-        incentivesDumper.dumpIncentives(3, claims, swapInfos);
+        incentivesDumper.dumpIncentives(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
         assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
@@ -126,6 +129,60 @@ contract IncentivesDumperTest is Test {
         assertApproxEqAbs(incentivesDumper.amounts(user2), (amountInUser2 * price) / 1e18, 1);
         assertApproxEqAbs(incentivesDumper.amounts(user3), (amountInUser3 * price) / 1e18, 1);
         assertEq(incentivesDumper.accruedFees(), 0); // no fees
+    }
+
+    function testFuzz_dumpIncentives_MultipleUsers_WithFees(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3, uint256 price) public {
+        amountInUser1 = _bound(amountInUser1, 1, 100_000_000e18);
+        amountInUser2 = _bound(amountInUser2, 1, 100_000_000e18);
+        amountInUser3 = _bound(amountInUser3, 1, 100_000_000e18);
+        price = _bound(price, 0.000001e18, 1_000_000e18);
+
+        mockOBRouter.setPrice(price);
+
+        address[] memory users = new address[](3);
+        users[0] = user1;
+        users[1] = user2;
+        users[2] = user3;
+
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = amountInUser1;
+        amounts[1] = amountInUser2;
+        amounts[2] = amountInUser3;
+
+        uint256 totalAmountIn = amountInUser1 + amountInUser2 + amountInUser3;
+
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
+
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.prank(users[i]);
+            mockERC20.approve(address(incentivesDumper), INFINITE_ALLOWANCE);
+        }
+
+
+        IIncentivesDumper.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
+
+        vm.prank(owner);
+        incentivesDumper.setPercentageFee(FEE);
+
+        vm.prank(operator);
+        incentivesDumper.dumpIncentives(TYPE, claims, swapInfos);
+
+        assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
+        assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
+        assertEq(mockERC20.balanceOf(user1), 0);
+        assertEq(mockERC20.balanceOf(user2), 0);
+        assertEq(mockERC20.balanceOf(user3), 0);
+
+        uint256 userPercentage = ONE_HUNDRED_PERCENT - FEE;
+        uint256 amountOutUser1 = (amountInUser1 * price) / 1e18;
+        uint256 amountOutUser2 = (amountInUser2 * price) / 1e18;
+        uint256 amountOutUser3 = (amountInUser3 * price) / 1e18;
+        uint256 amountOutTotal = amountOutUser1 + amountOutUser2 + amountOutUser3;
+
+        assertApproxEqAbs(incentivesDumper.amounts(user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(incentivesDumper.amounts(user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(incentivesDumper.amounts(user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(incentivesDumper.accruedFees(), (amountOutTotal * FEE) / ONE_HUNDRED_PERCENT, 2);
     }
 
     function _getRouterParams(IOBRouter.swapTokenInfo memory swapTokenInfo) internal view returns (IIncentivesDumper.RouterParams memory) {
