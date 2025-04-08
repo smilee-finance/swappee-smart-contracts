@@ -18,3 +18,6 @@ node_modules/
 
 # Bun
 bun.lockb
+
+# Broadcast files
+broadcast/

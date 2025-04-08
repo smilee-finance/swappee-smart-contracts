@@ -6,7 +6,7 @@ import {IBGTIncentiveDistributor} from "./external/IBGTIncentiveDistributor.sol"
 
 interface IIncentivesDumper {
     struct RouterParams {
-        IOBRouter.swapTokenInfo swaps;
+        IOBRouter.swapTokenInfo swapTokenInfo;
         bytes pathDefinition;
         address executor;
         uint32 referralCode;

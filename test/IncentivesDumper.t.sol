@@ -187,7 +187,7 @@ contract IncentivesDumperTest is Test {
 
     function _getRouterParams(IOBRouter.swapTokenInfo memory swapTokenInfo) internal view returns (IIncentivesDumper.RouterParams memory) {
         return IIncentivesDumper.RouterParams({
-            swaps: swapTokenInfo,
+            swapTokenInfo: swapTokenInfo,
             pathDefinition: _dummyPathDefinition,
             executor: address(0),
             referralCode: 0

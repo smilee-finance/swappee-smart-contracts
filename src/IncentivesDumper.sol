@@ -109,7 +109,7 @@ contract IncentivesDumper is IIncentivesDumper, AccessControl {
         for (uint256 i = 0; i < swapInfos.length; i++) {
             routerParams = swapInfos[i].routerParams;
             IERC20(swapInfos[i].inputToken).approve(aggregator, swapInfos[i].totalAmountIn);
-            uint256 amountOut = _swapToken(routerParams.swaps, routerParams.pathDefinition, routerParams.executor, routerParams.referralCode);
+            uint256 amountOut = _swapToken(routerParams.swapTokenInfo, routerParams.pathDefinition, routerParams.executor, routerParams.referralCode);
             uint256 fee = FixedPointMathLib.fullMulDiv(amountOut, percentageFee, ONE_HUNDRED_PERCENT);
             accruedFees += fee;
 
@@ -132,7 +132,8 @@ contract IncentivesDumper is IIncentivesDumper, AccessControl {
     }
 
     function _getClaimToken(bytes32 identifier) internal view returns (address) {
-        return IBGTIncentiveDistributor(bgtIncentivesDistributor).rewards(identifier).token;
+        (address token, , , , ) = IBGTIncentiveDistributor(bgtIncentivesDistributor).rewards(identifier);
+        return token;
     }
 
     function _shouldDo(uint8 input, Type action) internal pure returns (bool) {
