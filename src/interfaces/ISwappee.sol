@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {IOBRouter} from "./external/IOBRouter.sol";
 import {IBGTIncentiveDistributor} from "./external/IBGTIncentiveDistributor.sol";
 
-interface IIncentivesDumper {
+interface ISwappee {
     struct RouterParams {
         IOBRouter.swapTokenInfo swapTokenInfo;
         bytes pathDefinition;
@@ -48,7 +48,7 @@ interface IIncentivesDumper {
     event WithdrawFees(address indexed user, uint256 amount);
     event Accounted(address indexed user, uint256 amount);
 
-    function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) external;
+    function swappee(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) external;
     function withdraw(uint256 amount) external;
     function withdrawFees(uint256 amount) external;
 }

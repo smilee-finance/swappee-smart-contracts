@@ -1,5 +1,5 @@
 {
-  "name": "incentives-dumper",
+  "name": "swappee",
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "^5.0.0"

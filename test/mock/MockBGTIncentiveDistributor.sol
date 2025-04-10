@@ -41,14 +41,8 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
 
     function rewards(
         bytes32 /*identifier*/
-    ) external view override returns (Reward memory) {
-        return Reward({
-            token: mockedToken,
-            merkleRoot: bytes32(0),
-            proof: bytes32(0),
-            activeAt: block.timestamp,
-            pubkey: new bytes(0)
-        });
+    ) external view override returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey) {
+        return (mockedToken, bytes32(0), bytes32(0), block.timestamp, new bytes(0));
     }
 
     function incentiveTokensPerValidator(

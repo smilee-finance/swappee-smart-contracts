@@ -3,15 +3,15 @@ pragma solidity ^0.8.20;
 
 import {Test, console2} from "forge-std/Test.sol";
 
-import {IncentivesDumper} from "src/IncentivesDumper.sol";
-import {IIncentivesDumper} from "src/interfaces/IIncentivesDumper.sol";
+import {Swappee} from "src/Swappee.sol";
+import {ISwappee} from "src/interfaces/ISwappee.sol";
 import {IBGTIncentiveDistributor} from "src/interfaces/external/IBGTIncentiveDistributor.sol";
 import {IOBRouter} from "src/interfaces/external/IOBRouter.sol";
 import {MockOBRouter} from "@mock/MockOBRouter.sol";
 import {MockBGTIncentiveDistributor} from "@mock/MockBGTIncentiveDistributor.sol";
 import {MockERC20} from "@mock/MockERC20.sol";
 
-contract IncentivesDumperTest is Test {
+contract SwappeeTest is Test {
     uint256 public constant PRICE = 1e18; // incentives 1 : 1 BERA
     uint256 public constant CLAIM_AMOUNT = 100e18;
     uint256 public constant INFINITE_ALLOWANCE = type(uint256).max - 1;
@@ -19,7 +19,7 @@ contract IncentivesDumperTest is Test {
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
     uint16 public constant FEE = 1000; // 10%
 
-    IncentivesDumper public incentivesDumper;
+    Swappee public swappee;
 
     MockERC20 public mockERC20;
     MockOBRouter public mockOBRouter;
@@ -33,7 +33,7 @@ contract IncentivesDumperTest is Test {
 
     IOBRouter.swapTokenInfo public _dummySwaps;
     bytes public _dummyPathDefinition;
-    IIncentivesDumper.RouterParams public _dummyRouterParams;
+    ISwappee.RouterParams public _dummyRouterParams;
 
     function setUp() public {
         mockERC20 = new MockERC20("MockERC20", "MRC20", 18);
@@ -46,8 +46,8 @@ contract IncentivesDumperTest is Test {
         mockERC20.mint(address(mockBGTIncentiveDistributor), type(uint256).max);
 
         vm.startPrank(owner);
-        incentivesDumper = new IncentivesDumper(address(mockBGTIncentiveDistributor), address(mockOBRouter));
-        incentivesDumper.grantRole(incentivesDumper.OPERATOR_ROLE(), operator);
+        swappee = new Swappee(address(mockBGTIncentiveDistributor), address(mockOBRouter));
+        swappee.grantRole(swappee.OPERATOR_ROLE(), operator);
         vm.stopPrank();
     }
 
@@ -65,21 +65,21 @@ contract IncentivesDumperTest is Test {
         IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
 
         vm.prank(user1);
-        mockERC20.approve(address(incentivesDumper), INFINITE_ALLOWANCE);
+        mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
 
-        IIncentivesDumper.SwapInfo[] memory swapInfos = _buildSimpleSwapInfo(user1, amount);
+        ISwappee.SwapInfo[] memory swapInfos = _buildSimpleSwapInfo(user1, amount);
 
         vm.prank(operator);
         vm.expectEmit();
-        emit IIncentivesDumper.Accounted(user1, amount); // fees are 0
-        incentivesDumper.dumpIncentives(TYPE, claims, swapInfos);
+        emit ISwappee.Accounted(user1, amount); // fees are 0
+        swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
-        assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
+        assertEq(mockERC20.balanceOf(address(swappee)), 0);
         assertEq(mockERC20.balanceOf(user1), 0);
 
-        assertEq(incentivesDumper.amounts(user1), amount);
-        assertEq(incentivesDumper.accruedFees(), 0); // no fees
+        assertEq(swappee.amounts(user1), amount);
+        assertEq(swappee.accruedFees(), 0); // no fees
     }
 
     function test_dumpIncentives_MultipleUsers() public {
@@ -110,25 +110,25 @@ contract IncentivesDumperTest is Test {
 
         for (uint256 i = 0; i < users.length; i++) {
             vm.prank(users[i]);
-            mockERC20.approve(address(incentivesDumper), INFINITE_ALLOWANCE);
+            mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
         }
 
 
-        IIncentivesDumper.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
+        ISwappee.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
 
         vm.prank(operator);
-        incentivesDumper.dumpIncentives(TYPE, claims, swapInfos);
+        swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
-        assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
+        assertEq(mockERC20.balanceOf(address(swappee)), 0);
         assertEq(mockERC20.balanceOf(user1), 0);
         assertEq(mockERC20.balanceOf(user2), 0);
         assertEq(mockERC20.balanceOf(user3), 0);
 
-        assertApproxEqAbs(incentivesDumper.amounts(user1), (amountInUser1 * price) / 1e18, 1);
-        assertApproxEqAbs(incentivesDumper.amounts(user2), (amountInUser2 * price) / 1e18, 1);
-        assertApproxEqAbs(incentivesDumper.amounts(user3), (amountInUser3 * price) / 1e18, 1);
-        assertEq(incentivesDumper.accruedFees(), 0); // no fees
+        assertApproxEqAbs(swappee.amounts(user1), (amountInUser1 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(user2), (amountInUser2 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(user3), (amountInUser3 * price) / 1e18, 1);
+        assertEq(swappee.accruedFees(), 0); // no fees
     }
 
     function testFuzz_dumpIncentives_MultipleUsers_WithFees(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3, uint256 price) public {
@@ -155,20 +155,20 @@ contract IncentivesDumperTest is Test {
 
         for (uint256 i = 0; i < users.length; i++) {
             vm.prank(users[i]);
-            mockERC20.approve(address(incentivesDumper), INFINITE_ALLOWANCE);
+            mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
         }
 
 
-        IIncentivesDumper.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
+        ISwappee.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
 
         vm.prank(owner);
-        incentivesDumper.setPercentageFee(FEE);
+        swappee.setPercentageFee(FEE);
 
         vm.prank(operator);
-        incentivesDumper.dumpIncentives(TYPE, claims, swapInfos);
+        swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
-        assertEq(mockERC20.balanceOf(address(incentivesDumper)), 0);
+        assertEq(mockERC20.balanceOf(address(swappee)), 0);
         assertEq(mockERC20.balanceOf(user1), 0);
         assertEq(mockERC20.balanceOf(user2), 0);
         assertEq(mockERC20.balanceOf(user3), 0);
@@ -179,14 +179,14 @@ contract IncentivesDumperTest is Test {
         uint256 amountOutUser3 = (amountInUser3 * price) / 1e18;
         uint256 amountOutTotal = amountOutUser1 + amountOutUser2 + amountOutUser3;
 
-        assertApproxEqAbs(incentivesDumper.amounts(user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
-        assertApproxEqAbs(incentivesDumper.amounts(user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
-        assertApproxEqAbs(incentivesDumper.amounts(user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
-        assertApproxEqAbs(incentivesDumper.accruedFees(), (amountOutTotal * FEE) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.accruedFees(), (amountOutTotal * FEE) / ONE_HUNDRED_PERCENT, 2);
     }
 
-    function _getRouterParams(IOBRouter.swapTokenInfo memory swapTokenInfo) internal view returns (IIncentivesDumper.RouterParams memory) {
-        return IIncentivesDumper.RouterParams({
+    function _getRouterParams(IOBRouter.swapTokenInfo memory swapTokenInfo) internal view returns (ISwappee.RouterParams memory) {
+        return ISwappee.RouterParams({
             swapTokenInfo: swapTokenInfo,
             pathDefinition: _dummyPathDefinition,
             executor: address(0),
@@ -205,16 +205,16 @@ contract IncentivesDumperTest is Test {
         });
     }
 
-    function _getUserInfos(address[] memory users, uint256[] memory amountsIn) internal pure returns (IIncentivesDumper.UserInfo[] memory) {
-        IIncentivesDumper.UserInfo[] memory _userInfos = new IIncentivesDumper.UserInfo[](users.length);
+    function _getUserInfos(address[] memory users, uint256[] memory amountsIn) internal pure returns (ISwappee.UserInfo[] memory) {
+        ISwappee.UserInfo[] memory _userInfos = new ISwappee.UserInfo[](users.length);
         for (uint256 i = 0; i < users.length; i++) {
-            _userInfos[i] = IIncentivesDumper.UserInfo({user: users[i], amountIn: amountsIn[i]});
+            _userInfos[i] = ISwappee.UserInfo({user: users[i], amountIn: amountsIn[i]});
         }
         return _userInfos;
     }
 
-    function _getSwapInfo(address inputToken, uint256 totalAmountIn, IIncentivesDumper.RouterParams memory routerParams, IIncentivesDumper.UserInfo[] memory userInfos) internal pure returns (IIncentivesDumper.SwapInfo memory) {
-        return IIncentivesDumper.SwapInfo({
+    function _getSwapInfo(address inputToken, uint256 totalAmountIn, ISwappee.RouterParams memory routerParams, ISwappee.UserInfo[] memory userInfos) internal pure returns (ISwappee.SwapInfo memory) {
+        return ISwappee.SwapInfo({
             inputToken: inputToken,
             totalAmountIn: totalAmountIn,
             routerParams: routerParams,
@@ -223,30 +223,30 @@ contract IncentivesDumperTest is Test {
     }
 
     /// @dev Creates a simple swap info with a single user and amount in.
-    function _buildSimpleSwapInfo(address user, uint256 amountIn) internal view returns (IIncentivesDumper.SwapInfo[] memory) {
+    function _buildSimpleSwapInfo(address user, uint256 amountIn) internal view returns (ISwappee.SwapInfo[] memory) {
         address[] memory users = new address[](1);
         users[0] = user;
         uint256[] memory amountsIn = new uint256[](1);
         amountsIn[0] = amountIn;
 
-        IIncentivesDumper.UserInfo[] memory _userInfos = _getUserInfos(users, amountsIn);
+        ISwappee.UserInfo[] memory _userInfos = _getUserInfos(users, amountsIn);
 
-        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(amountIn, address(mockERC20), address(incentivesDumper));
-        IIncentivesDumper.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
+        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(amountIn, address(mockERC20), address(swappee));
+        ISwappee.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
 
-        IIncentivesDumper.SwapInfo[] memory swapInfos = new IIncentivesDumper.SwapInfo[](1);
+        ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
         swapInfos[0] = _getSwapInfo(address(mockERC20), amountIn, _routerParams, _userInfos);
 
         return swapInfos;
     }
 
-    function _buildMultipleUsersSwapInfo(address[] memory users, uint256[] memory amounts, uint256 totalAmountIn) internal view returns (IIncentivesDumper.SwapInfo[] memory) {
-        IIncentivesDumper.UserInfo[] memory _userInfos = _getUserInfos(users, amounts);
+    function _buildMultipleUsersSwapInfo(address[] memory users, uint256[] memory amounts, uint256 totalAmountIn) internal view returns (ISwappee.SwapInfo[] memory) {
+        ISwappee.UserInfo[] memory _userInfos = _getUserInfos(users, amounts);
 
-        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(totalAmountIn, address(mockERC20), address(incentivesDumper));
-        IIncentivesDumper.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
+        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(totalAmountIn, address(mockERC20), address(swappee));
+        ISwappee.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
 
-        IIncentivesDumper.SwapInfo[] memory swapInfos = new IIncentivesDumper.SwapInfo[](1);
+        ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
         swapInfos[0] = _getSwapInfo(address(mockERC20), totalAmountIn, _routerParams, _userInfos);
 
         return swapInfos;

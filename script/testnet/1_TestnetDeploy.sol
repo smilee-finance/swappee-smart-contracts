@@ -4,7 +4,7 @@ pragma solidity ^0.8.20;
 import {Script, console2} from "forge-std/Script.sol";
 import {TestnetIncetiveDistributor} from "src/testnet/TestnetIncetiveDistributor.sol";
 import {TestnetOBRouter} from "src/testnet/TestnetOBRouter.sol";
-import {IncentivesDumper} from "src/IncentivesDumper.sol";
+import {Swappee} from "src/Swappee.sol";
 
 contract TestnetDeploy is Script {
     function run() public {
@@ -17,8 +17,8 @@ contract TestnetDeploy is Script {
         console2.log("TestnetDeploy: TestnetIncentiveToken deployed at:", testnetDistributor.getIncentiveToken());
         console2.log("TestnetDeploy: TestnetOBRouter deployed at:", address(testnetRouter));
 
-        IncentivesDumper dumper = new IncentivesDumper(address(testnetDistributor), address(testnetRouter));
-        console2.log("TestnetDeploy: IncentivesDumper deployed at:", address(dumper));
+        Swappee swappee = new Swappee(address(testnetDistributor), address(testnetRouter));
+        console2.log("TestnetDeploy: Swappee deployed at:", address(swappee));
 
         vm.stopBroadcast();
     }

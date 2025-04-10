@@ -6,11 +6,11 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistributor.sol";
 import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
-import {IIncentivesDumper} from "./interfaces/IIncentivesDumper.sol";
+import {ISwappee} from "./interfaces/ISwappee.sol";
 
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-contract IncentivesDumper is IIncentivesDumper, AccessControl {
+contract Swappee is ISwappee, AccessControl {
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
 
@@ -57,7 +57,7 @@ contract IncentivesDumper is IIncentivesDumper, AccessControl {
         emit PercentageFeeUpdated(_percentageFee);
     }
 
-    function dumpIncentives(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyRole(OPERATOR_ROLE) {
+    function swappee(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) public onlyRole(OPERATOR_ROLE) {
         if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
             _claimIncentives(claims);
             // Pull tokens from users after claim
