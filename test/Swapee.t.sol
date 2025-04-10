@@ -10,6 +10,7 @@ import {IOBRouter} from "src/interfaces/external/IOBRouter.sol";
 import {MockOBRouter} from "@mock/MockOBRouter.sol";
 import {MockBGTIncentiveDistributor} from "@mock/MockBGTIncentiveDistributor.sol";
 import {MockERC20} from "@mock/MockERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract SwappeeTest is Test {
     uint256 public constant PRICE = 1e18; // incentives 1 : 1 BERA
@@ -78,7 +79,7 @@ contract SwappeeTest is Test {
         assertEq(mockERC20.balanceOf(address(swappee)), 0);
         assertEq(mockERC20.balanceOf(user1), 0);
 
-        assertEq(swappee.amounts(user1), amount);
+        assertEq(swappee.amounts(address(0), user1), amount);
         assertEq(swappee.accruedFees(), 0); // no fees
     }
 
@@ -113,8 +114,8 @@ contract SwappeeTest is Test {
             mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
         }
 
-
-        ISwappee.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
+        ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
+        swapInfos[0] = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn, address(0));
 
         vm.prank(operator);
         swappee.swappee(TYPE, claims, swapInfos);
@@ -125,9 +126,9 @@ contract SwappeeTest is Test {
         assertEq(mockERC20.balanceOf(user2), 0);
         assertEq(mockERC20.balanceOf(user3), 0);
 
-        assertApproxEqAbs(swappee.amounts(user1), (amountInUser1 * price) / 1e18, 1);
-        assertApproxEqAbs(swappee.amounts(user2), (amountInUser2 * price) / 1e18, 1);
-        assertApproxEqAbs(swappee.amounts(user3), (amountInUser3 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(address(0), user1), (amountInUser1 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(address(0), user2), (amountInUser2 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(address(0), user3), (amountInUser3 * price) / 1e18, 1);
         assertEq(swappee.accruedFees(), 0); // no fees
     }
 
@@ -158,8 +159,8 @@ contract SwappeeTest is Test {
             mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
         }
 
-
-        ISwappee.SwapInfo[] memory swapInfos = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn);
+        ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
+        swapInfos[0] = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn, address(0));
 
         vm.prank(owner);
         swappee.setPercentageFee(FEE);
@@ -179,10 +180,83 @@ contract SwappeeTest is Test {
         uint256 amountOutUser3 = (amountInUser3 * price) / 1e18;
         uint256 amountOutTotal = amountOutUser1 + amountOutUser2 + amountOutUser3;
 
-        assertApproxEqAbs(swappee.amounts(user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
-        assertApproxEqAbs(swappee.amounts(user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
-        assertApproxEqAbs(swappee.amounts(user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(address(0), user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(address(0), user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(address(0), user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
         assertApproxEqAbs(swappee.accruedFees(), (amountOutTotal * FEE) / ONE_HUNDRED_PERCENT, 2);
+    }
+
+    function testFuzz_dumpIncentives_MultipleUsers_MultipleTokens(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3, uint256 price) public {
+        amountInUser1 = _bound(amountInUser1, 1, 100_000_000e18);
+        amountInUser2 = _bound(amountInUser2, 1, 100_000_000e18);
+        amountInUser3 = _bound(amountInUser3, 1, 100_000_000e18);
+        price = _bound(price, 0.000001e18, 1_000_000e18);
+
+        mockOBRouter.setPrice(price);
+
+        address[] memory users = new address[](3);
+        users[0] = user1;
+        users[1] = user2;
+        users[2] = user3;
+
+        uint256[] memory amountsIn = new uint256[](3);
+        amountsIn[0] = amountInUser1;
+        amountsIn[1] = amountInUser2;
+        amountsIn[2] = amountInUser3;
+
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amountsIn);
+
+        for (uint256 i = 0; i < users.length; i++) {
+            vm.prank(users[i]);
+            mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
+        }
+
+        // USER1 and USER2 will swap to native token, USER3 will swap to ERC20
+        address[] memory usersSwapToNative = new address[](2);
+        usersSwapToNative[0] = user1;
+        usersSwapToNative[1] = user2;
+
+        address[] memory usersSwapToERC20 = new address[](1);
+        usersSwapToERC20[0] = user3;
+
+        uint256[] memory amountsInNative = new uint256[](2);
+        amountsInNative[0] = amountInUser1;
+        amountsInNative[1] = amountInUser2;
+
+        uint256[] memory amountsInERC20 = new uint256[](1);
+        amountsInERC20[0] = amountInUser3;
+
+        ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](2);
+        swapInfos[0] = _buildMultipleUsersSwapInfo(usersSwapToNative, amountsInNative, amountInUser1 + amountInUser2, address(0));
+        swapInfos[1] = _buildMultipleUsersSwapInfo(usersSwapToERC20, amountsInERC20, amountInUser3, 0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce);
+
+        vm.prank(operator);
+        swappee.swappee(TYPE, claims, swapInfos);
+
+        assertEq(mockERC20.balanceOf(address(mockOBRouter)), amountInUser1 + amountInUser2 + amountInUser3);
+        assertEq(mockERC20.balanceOf(address(swappee)), 0);
+        assertEq(mockERC20.balanceOf(user1), 0);
+        assertEq(mockERC20.balanceOf(user2), 0);
+        assertEq(mockERC20.balanceOf(user3), 0);
+
+        assertApproxEqAbs(swappee.amounts(address(0), user1), (amountInUser1 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(address(0), user2), (amountInUser2 * price) / 1e18, 1);
+        assertApproxEqAbs(swappee.amounts(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce, user3), (amountInUser3 * price) / 1e18, 1);
+        assertEq(swappee.accruedFees(), 0); // no fees
+
+        vm.startPrank(user1);
+        swappee.withdraw(address(0), swappee.amounts(address(0), user1));
+        assertApproxEqAbs(user1.balance, (amountsInNative[0] * price) / 1e18, 1);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        swappee.withdraw(address(0), swappee.amounts(address(0), user2));
+        assertApproxEqAbs(user2.balance, (amountsInNative[1] * price) / 1e18, 1);
+        vm.stopPrank();
+
+        // vm.prank(user3);
+        // swappee.withdraw(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce, (amountsInERC20[0] * price) / 1e18);
+        // assertApproxEqAbs(IERC20(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce).balanceOf(user3), (amountsInERC20[0] * price) / 1e18, 1);
     }
 
     function _getRouterParams(IOBRouter.swapTokenInfo memory swapTokenInfo) internal view returns (ISwappee.RouterParams memory) {
@@ -194,11 +268,11 @@ contract SwappeeTest is Test {
         });
     }
 
-    function _getSwapTokenInfo(uint256 amountIn, address token, address to) internal pure returns (IOBRouter.swapTokenInfo memory) {
+    function _getSwapTokenInfo(uint256 amountIn, address token, address to, address outputToken) internal pure returns (IOBRouter.swapTokenInfo memory) {
         return IOBRouter.swapTokenInfo({
             inputToken: token,
             inputAmount: amountIn,
-            outputToken: address(0),
+            outputToken: outputToken,
             outputQuote: (amountIn * PRICE) / 1e18,
             outputMin: (amountIn * PRICE) / 1e18,
             outputReceiver: to
@@ -231,7 +305,7 @@ contract SwappeeTest is Test {
 
         ISwappee.UserInfo[] memory _userInfos = _getUserInfos(users, amountsIn);
 
-        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(amountIn, address(mockERC20), address(swappee));
+        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(amountIn, address(mockERC20), address(swappee), address(0));
         ISwappee.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
 
         ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
@@ -240,15 +314,12 @@ contract SwappeeTest is Test {
         return swapInfos;
     }
 
-    function _buildMultipleUsersSwapInfo(address[] memory users, uint256[] memory amounts, uint256 totalAmountIn) internal view returns (ISwappee.SwapInfo[] memory) {
+    function _buildMultipleUsersSwapInfo(address[] memory users, uint256[] memory amounts, uint256 totalAmountIn, address outputToken) internal view returns (ISwappee.SwapInfo memory) {
         ISwappee.UserInfo[] memory _userInfos = _getUserInfos(users, amounts);
 
-        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(totalAmountIn, address(mockERC20), address(swappee));
+        IOBRouter.swapTokenInfo memory _swapTokenInfo = _getSwapTokenInfo(totalAmountIn, address(mockERC20), address(swappee), outputToken);
         ISwappee.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
 
-        ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
-        swapInfos[0] = _getSwapInfo(address(mockERC20), totalAmountIn, _routerParams, _userInfos);
-
-        return swapInfos;
+        return _getSwapInfo(address(mockERC20), totalAmountIn, _routerParams, _userInfos);
     }
 }
