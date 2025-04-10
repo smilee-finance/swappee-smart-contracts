@@ -34,6 +34,8 @@ contract Swappee is ISwappee, AccessControl {
         _grantRole(OPERATOR_ROLE, msg.sender);
     }
 
+    /// @notice Sets the BGT incentives distributor
+    /// @param _bgtIncentivesDistributor The address of the new BGT incentives distributor
     function setBgtIncentivesDistributor(
         address _bgtIncentivesDistributor
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -47,6 +49,8 @@ contract Swappee is ISwappee, AccessControl {
         );
     }
 
+    /// @notice Sets the aggregator
+    /// @param _aggregator The address of the new aggregator
     function setAggregator(
         address _aggregator
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -57,6 +61,8 @@ contract Swappee is ISwappee, AccessControl {
         emit AggregatorUpdated(oldAggregator, _aggregator);
     }
 
+    /// @notice Sets the percentage fee
+    /// @param _percentageFee The new percentage fee
     function setPercentageFee(
         uint16 _percentageFee
     ) public onlyRole(DEFAULT_ADMIN_ROLE) {
@@ -66,6 +72,7 @@ contract Swappee is ISwappee, AccessControl {
         emit PercentageFeeUpdated(_percentageFee);
     }
 
+    /// @inheritdoc ISwappee
     function swappee(
         uint8 action,
         IBGTIncentiveDistributor.Claim[] calldata claims,
@@ -89,6 +96,7 @@ contract Swappee is ISwappee, AccessControl {
         }
     }
 
+    /// @inheritdoc ISwappee
     function withdraw(address token, uint256 amount) public {
         uint256 amountToWithdraw = amounts[token][msg.sender];
         if (amountToWithdraw < amount) revert InvalidAmount();
@@ -104,6 +112,7 @@ contract Swappee is ISwappee, AccessControl {
         emit Withdraw(msg.sender, amount);
     }
 
+    /// @inheritdoc ISwappee
     function withdrawFees(uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (accruedFees < amount) revert InvalidAmount();
 
