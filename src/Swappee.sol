@@ -72,26 +72,20 @@ contract Swappee is ISwappee, Ownable {
 
     /// @inheritdoc ISwappee
     function swappee(
-        uint8 action,
         IBGTIncentiveDistributor.Claim[] calldata claims,
         SwapInfo[] calldata swapInfos
     ) public {
-        if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
-            _claimIncentives(claims);
-            // Pull tokens from users after claim
-            for (uint256 i = 0; i < claims.length; i++) {
-                address token = _getClaimToken(claims[i].identifier);
-                IERC20(token).transferFrom(
-                    claims[i].account,
-                    address(this),
-                    claims[i].amount
-                );
-            }
+        _claimIncentives(claims);
+        // Pull tokens from users after claim
+        for (uint256 i = 0; i < claims.length; i++) {
+            address token = _getClaimToken(claims[i].identifier);
+            IERC20(token).transferFrom(
+                claims[i].account,
+                address(this),
+                claims[i].amount
+            );
         }
-
-        if (_shouldDo(action, Type.SWAP_TOKENS)) {
-            _swapTokens(swapInfos);
-        }
+        _swapTokens(swapInfos);
     }
 
     /// @inheritdoc ISwappee
@@ -198,10 +192,6 @@ contract Swappee is ISwappee, Ownable {
             bgtIncentivesDistributor
         ).rewards(identifier);
         return token;
-    }
-
-    function _shouldDo(uint8 input, Type action) internal pure returns (bool) {
-        return (input & (1 << uint8(action))) != 0;
     }
 
     function _swapToken(

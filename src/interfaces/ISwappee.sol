@@ -92,11 +92,10 @@ interface ISwappee {
 
     /**
      * @notice Executes a swappee operation
-     * @param action The type of action to perform, use a bitmask to combine the operations
      * @param claims Array of incentive claims to process
      * @param swapInfos Array of swap information for token swaps
      */
-    function swappee(uint8 action, IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) external;
+    function swappee(IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) external;
 
     /**
      * @notice Withdraws swapped tokens from the contract

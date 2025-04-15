@@ -16,7 +16,6 @@ contract SwappeeTest is Test {
     uint256 public constant PRICE = 1e18; // incentives 1 : 1 BERA
     uint256 public constant CLAIM_AMOUNT = 100e18;
     uint256 public constant INFINITE_ALLOWANCE = type(uint256).max - 1;
-    uint8 public constant TYPE = 3; // 00000011
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
     uint16 public constant FEE = 1000; // 10%
 
@@ -70,7 +69,7 @@ contract SwappeeTest is Test {
 
         vm.expectEmit();
         emit ISwappee.Accounted(address(0), user1, amount); // fees are 0
-        swappee.swappee(TYPE, claims, swapInfos);
+        swappee.swappee(claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
         assertEq(mockERC20.balanceOf(address(swappee)), 0);
@@ -114,7 +113,7 @@ contract SwappeeTest is Test {
         ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
         swapInfos[0] = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn, address(0));
 
-        swappee.swappee(TYPE, claims, swapInfos);
+        swappee.swappee(claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
         assertEq(mockERC20.balanceOf(address(swappee)), 0);
@@ -161,7 +160,7 @@ contract SwappeeTest is Test {
         vm.prank(owner);
         swappee.setPercentageFee(FEE);
 
-        swappee.swappee(TYPE, claims, swapInfos);
+        swappee.swappee(claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
         assertEq(mockERC20.balanceOf(address(swappee)), 0);
@@ -228,7 +227,7 @@ contract SwappeeTest is Test {
         swapInfos[0] = _buildMultipleUsersSwapInfo(usersSwapToNative, amountsInNative, amountInUser1 + amountInUser2, address(0));
         swapInfos[1] = _buildMultipleUsersSwapInfo(usersSwapToERC20, amountsInERC20, amountInUser3, 0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce);
 
-        swappee.swappee(TYPE, claims, swapInfos);
+        swappee.swappee(claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), amountInUser1 + amountInUser2 + amountInUser3);
         assertEq(mockERC20.balanceOf(address(swappee)), 0);
