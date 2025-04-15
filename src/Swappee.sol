@@ -80,7 +80,7 @@ contract Swappee is ISwappee, AccessControl {
         uint8 action,
         IBGTIncentiveDistributor.Claim[] calldata claims,
         SwapInfo[] calldata swapInfos
-    ) public onlyRole(OPERATOR_ROLE) {
+    ) public {
         if (_shouldDo(action, Type.CLAIM_INCENTIVES)) {
             _claimIncentives(claims);
             // Pull tokens from users after claim
