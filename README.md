@@ -1,66 +1,64 @@
-## Foundry
+# Swappee Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A collection of smart contracts for the Swappee protocol.
 
-Foundry consists of:
+## Overview
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+This repository contains the smart contracts for the Swappee protocol. The project is built using Foundry and Node for package dependencies.
 
-## Documentation
+## Prerequisites
 
-https://book.getfoundry.sh/
+- [Foundry](https://book.getfoundry.sh/getting-started/installation)
+- [Bun](https://bun.sh/) (JavaScript runtime)
+- Node.js (for TypeScript support)
 
-## Usage
+## Installation
 
-### Build
+1. Clone the repository.
 
-```shell
-$ forge build
+2. Install dependencies:
+```bash
+bun install
 ```
 
-### Test
-
-```shell
-$ forge test
+3. Install Foundry dependencies:
+```bash
+forge install
 ```
 
-### Format
+## Project Structure
 
-```shell
-$ forge fmt
+- `src/` - Main source code directory for Solidity contracts
+- `test/` - Test files for the contracts
+- `script/` - Deployment and utility scripts
+- `lib/` - External dependencies
+
+## Development
+
+### Compiling Contracts
+
+```bash
+forge compile
 ```
 
-### Gas Snapshots
+### Running Tests
 
-```shell
-$ forge snapshot
+```bash
+forge test
 ```
 
-### Anvil
+## Configuration
 
-```shell
-$ anvil
-```
+The project is configured with the following settings:
+- Solidity version: 0.8.28
+- EVM version: Cancun
 
-### Deploy
+## Dependencies
 
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
+- OpenZeppelin Contracts v5.1.0
+- OpenZeppelin Contracts Upgradeable v5.1.0
+- Solady v0.1.14
 
-### Cast
+## License
 
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+MIT
