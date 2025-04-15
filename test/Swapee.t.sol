@@ -72,7 +72,7 @@ contract SwappeeTest is Test {
 
         vm.prank(operator);
         vm.expectEmit();
-        emit ISwappee.Accounted(user1, amount); // fees are 0
+        emit ISwappee.Accounted(address(0), user1, amount); // fees are 0
         swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
@@ -80,7 +80,7 @@ contract SwappeeTest is Test {
         assertEq(mockERC20.balanceOf(user1), 0);
 
         assertEq(swappee.amounts(address(0), user1), amount);
-        assertEq(swappee.accruedFees(), 0); // no fees
+        assertEq(swappee.accruedFees(address(0)), 0); // no fees
     }
 
     function test_dumpIncentives_MultipleUsers() public {
@@ -129,7 +129,7 @@ contract SwappeeTest is Test {
         assertApproxEqAbs(swappee.amounts(address(0), user1), (amountInUser1 * price) / 1e18, 1);
         assertApproxEqAbs(swappee.amounts(address(0), user2), (amountInUser2 * price) / 1e18, 1);
         assertApproxEqAbs(swappee.amounts(address(0), user3), (amountInUser3 * price) / 1e18, 1);
-        assertEq(swappee.accruedFees(), 0); // no fees
+        assertEq(swappee.accruedFees(address(0)), 0); // no fees
     }
 
     function testFuzz_dumpIncentives_MultipleUsers_WithFees(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3, uint256 price) public {
@@ -183,7 +183,7 @@ contract SwappeeTest is Test {
         assertApproxEqAbs(swappee.amounts(address(0), user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
         assertApproxEqAbs(swappee.amounts(address(0), user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
         assertApproxEqAbs(swappee.amounts(address(0), user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
-        assertApproxEqAbs(swappee.accruedFees(), (amountOutTotal * FEE) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.accruedFees(address(0)), (amountOutTotal * FEE) / ONE_HUNDRED_PERCENT, 2);
     }
 
     function testFuzz_dumpIncentives_MultipleUsers_MultipleTokens(uint256 amountInUser1, uint256 amountInUser2, uint256 amountInUser3, uint256 price) public {
@@ -193,6 +193,9 @@ contract SwappeeTest is Test {
         price = _bound(price, 0.000001e18, 1_000_000e18);
 
         mockOBRouter.setPrice(price);
+
+        vm.prank(owner);
+        swappee.setPercentageFee(FEE);
 
         address[] memory users = new address[](3);
         users[0] = user1;
@@ -239,19 +242,25 @@ contract SwappeeTest is Test {
         assertEq(mockERC20.balanceOf(user2), 0);
         assertEq(mockERC20.balanceOf(user3), 0);
 
-        assertApproxEqAbs(swappee.amounts(address(0), user1), (amountInUser1 * price) / 1e18, 1);
-        assertApproxEqAbs(swappee.amounts(address(0), user2), (amountInUser2 * price) / 1e18, 1);
-        assertApproxEqAbs(swappee.amounts(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce, user3), (amountInUser3 * price) / 1e18, 1);
-        assertEq(swappee.accruedFees(), 0); // no fees
+        uint256 userPercentage = ONE_HUNDRED_PERCENT - FEE;
+        uint256 amountOutUser1 = (amountInUser1 * price) / 1e18;
+        uint256 amountOutUser2 = (amountInUser2 * price) / 1e18;
+        uint256 amountOutUser3 = (amountInUser3 * price) / 1e18;
+        assertApproxEqAbs(swappee.amounts(address(0), user1), (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(address(0), user2), (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.amounts(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce, user3), (amountOutUser3 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
+
+        assertApproxEqAbs(swappee.accruedFees(address(0)), (amountOutUser1 + amountOutUser2) * FEE / ONE_HUNDRED_PERCENT, 2);
+        assertApproxEqAbs(swappee.accruedFees(0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce), amountOutUser3 * FEE / ONE_HUNDRED_PERCENT, 2);
 
         vm.startPrank(user1);
         swappee.withdraw(address(0), swappee.amounts(address(0), user1));
-        assertApproxEqAbs(user1.balance, (amountsInNative[0] * price) / 1e18, 1);
+        assertApproxEqAbs(user1.balance, (amountOutUser1 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
         vm.stopPrank();
 
         vm.startPrank(user2);
         swappee.withdraw(address(0), swappee.amounts(address(0), user2));
-        assertApproxEqAbs(user2.balance, (amountsInNative[1] * price) / 1e18, 1);
+        assertApproxEqAbs(user2.balance, (amountOutUser2 * userPercentage) / ONE_HUNDRED_PERCENT, 2);
         vm.stopPrank();
 
         // vm.prank(user3);

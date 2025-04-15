@@ -17,8 +17,11 @@ contract Swappee is ISwappee, AccessControl {
     address public bgtIncentivesDistributor;
     address public aggregator;
     uint16 public percentageFee;
-    uint256 public accruedFees;
 
+    /// @dev token => amount
+    mapping(address => uint256) public accruedFees;
+
+    /// @dev token => user => amount
     mapping(address => mapping(address => uint256)) public amounts;
 
     receive() external payable {}
@@ -113,17 +116,21 @@ contract Swappee is ISwappee, AccessControl {
     }
 
     /// @inheritdoc ISwappee
-    function withdrawFees(uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (accruedFees < amount) revert InvalidAmount();
+    function withdrawFees(address token, uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (accruedFees[token] < amount) revert InvalidAmount();
 
         unchecked {
-            accruedFees -= amount;
+            accruedFees[token] -= amount;
         }
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
-        if (!success) revert TransferFailed();
+        if (token == address(0)) {
+            (bool success, ) = payable(msg.sender).call{value: amount}("");
+            if (!success) revert TransferFailed();
+        } else {
+            IERC20(token).transfer(msg.sender, amount);
+        }
 
-        emit WithdrawFees(msg.sender, amount);
+        emit WithdrawFees(token, msg.sender, amount);
     }
 
     function _claimIncentives(
@@ -151,7 +158,7 @@ contract Swappee is ISwappee, AccessControl {
                 percentageFee,
                 ONE_HUNDRED_PERCENT
             );
-            accruedFees += fee;
+            accruedFees[routerParams.swapTokenInfo.outputToken] += fee;
 
             _accountPerUser(
                 swapInfos[i].userInfos,
@@ -185,7 +192,7 @@ contract Swappee is ISwappee, AccessControl {
             );
             amounts[outputToken][userInfos[i].user] += userAmount;
 
-            emit Accounted(userInfos[i].user, userAmount);
+            emit Accounted(outputToken, userInfos[i].user, userAmount);
         }
     }
 
