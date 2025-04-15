@@ -27,7 +27,6 @@ contract SwappeeTest is Test {
     MockBGTIncentiveDistributor public mockBGTIncentiveDistributor;
 
     address public owner = makeAddr("owner");
-    address public operator = makeAddr("operator");
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
     address public user3 = makeAddr("user3");
@@ -48,7 +47,6 @@ contract SwappeeTest is Test {
 
         vm.startPrank(owner);
         swappee = new Swappee(address(mockBGTIncentiveDistributor), address(mockOBRouter));
-        swappee.grantRole(swappee.OPERATOR_ROLE(), operator);
         vm.stopPrank();
     }
 
@@ -70,7 +68,6 @@ contract SwappeeTest is Test {
 
         ISwappee.SwapInfo[] memory swapInfos = _buildSimpleSwapInfo(user1, amount);
 
-        vm.prank(operator);
         vm.expectEmit();
         emit ISwappee.Accounted(address(0), user1, amount); // fees are 0
         swappee.swappee(TYPE, claims, swapInfos);
@@ -117,7 +114,6 @@ contract SwappeeTest is Test {
         ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);
         swapInfos[0] = _buildMultipleUsersSwapInfo(users, amounts, totalAmountIn, address(0));
 
-        vm.prank(operator);
         swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
@@ -165,7 +161,6 @@ contract SwappeeTest is Test {
         vm.prank(owner);
         swappee.setPercentageFee(FEE);
 
-        vm.prank(operator);
         swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), totalAmountIn);
@@ -233,7 +228,6 @@ contract SwappeeTest is Test {
         swapInfos[0] = _buildMultipleUsersSwapInfo(usersSwapToNative, amountsInNative, amountInUser1 + amountInUser2, address(0));
         swapInfos[1] = _buildMultipleUsersSwapInfo(usersSwapToERC20, amountsInERC20, amountInUser3, 0xFCBD14DC51f0A4d49d5E53C2E0950e0bC26d0Dce);
 
-        vm.prank(operator);
         swappee.swappee(TYPE, claims, swapInfos);
 
         assertEq(mockERC20.balanceOf(address(mockOBRouter)), amountInUser1 + amountInUser2 + amountInUser3);

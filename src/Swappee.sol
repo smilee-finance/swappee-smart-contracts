@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistributor.sol";
@@ -10,8 +10,7 @@ import {ISwappee} from "./interfaces/ISwappee.sol";
 
 import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
 
-contract Swappee is ISwappee, AccessControl {
-    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+contract Swappee is ISwappee, Ownable {
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
 
     address public bgtIncentivesDistributor;
@@ -26,22 +25,22 @@ contract Swappee is ISwappee, AccessControl {
 
     receive() external payable {}
 
-    constructor(address _bgtIncentivesDistributor, address _aggregator) {
+    constructor(
+        address _bgtIncentivesDistributor,
+        address _aggregator
+    ) Ownable(msg.sender) {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
         if (_isAddressZero(_aggregator)) revert AddressZero();
 
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
         aggregator = _aggregator;
-
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _grantRole(OPERATOR_ROLE, msg.sender);
     }
 
     /// @notice Sets the BGT incentives distributor
     /// @param _bgtIncentivesDistributor The address of the new BGT incentives distributor
     function setBgtIncentivesDistributor(
         address _bgtIncentivesDistributor
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) public onlyOwner {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
         address oldBgtIncentivesDistributor = bgtIncentivesDistributor;
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
@@ -54,9 +53,7 @@ contract Swappee is ISwappee, AccessControl {
 
     /// @notice Sets the aggregator
     /// @param _aggregator The address of the new aggregator
-    function setAggregator(
-        address _aggregator
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setAggregator(address _aggregator) public onlyOwner {
         if (_isAddressZero(_aggregator)) revert AddressZero();
         address oldAggregator = aggregator;
         aggregator = _aggregator;
@@ -66,9 +63,7 @@ contract Swappee is ISwappee, AccessControl {
 
     /// @notice Sets the percentage fee
     /// @param _percentageFee The new percentage fee
-    function setPercentageFee(
-        uint16 _percentageFee
-    ) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function setPercentageFee(uint16 _percentageFee) public onlyOwner {
         if (_percentageFee > ONE_HUNDRED_PERCENT) revert InvalidPercentageFee();
         percentageFee = _percentageFee;
 
@@ -116,7 +111,7 @@ contract Swappee is ISwappee, AccessControl {
     }
 
     /// @inheritdoc ISwappee
-    function withdrawFees(address token, uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
+    function withdrawFees(address token, uint256 amount) public onlyOwner {
         if (accruedFees[token] < amount) revert InvalidAmount();
 
         unchecked {
