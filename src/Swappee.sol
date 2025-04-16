@@ -162,16 +162,19 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
 
     /// @inheritdoc ISwappee
     function withdraw(address token, uint256 amount) public {
-        uint256 amountToWithdraw = amounts[token][msg.sender];
-        if (amountToWithdraw < amount) revert InvalidAmount();
-        if (amount > address(this).balance) revert InsufficientBalance();
+        uint256 amountWithdrawable = amounts[token][msg.sender];
+        if (amountWithdrawable < amount) revert InvalidAmount();
 
         unchecked {
             amounts[token][msg.sender] -= amount;
         }
 
-        (bool success,) = payable(msg.sender).call{ value: amount }("");
-        if (!success) revert TransferFailed();
+        if (token == address(0)) {
+            (bool success,) = payable(msg.sender).call{ value: amount }("");
+            if (!success) revert TransferFailed();
+        } else {
+            IERC20(token).transfer(msg.sender, amount);
+        }
 
         emit Withdraw(msg.sender, amount);
     }
