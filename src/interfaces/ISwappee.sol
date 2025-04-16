@@ -109,20 +109,6 @@ interface ISwappee {
         external;
 
     /**
-     * @notice Executes a swappee operation
-     * @dev This function is callable only by a wallet that has been granted the right role
-     * @param claims Array of incentive claims to process
-     * @param swapInfos Array of swap information for token swaps
-     * @param tokenOut The address of the token to be received
-     */
-    function swappee(
-        IBGTIncentiveDistributor.Claim[] calldata claims,
-        SwapInfo[] calldata swapInfos,
-        address tokenOut
-    )
-        external;
-
-    /**
      * @notice Withdraws swapped tokens from the contract
      * @param token The address of the token to withdraw
      * @param amount The amount of tokens to withdraw

@@ -2,14 +2,14 @@
 pragma solidity ^0.8.28;
 
 import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import { IBGTIncentiveDistributor } from "./interfaces/external/IBGTIncentiveDistributor.sol";
-import { IOBRouter } from "./interfaces/external/IOBRouter.sol";
-import { ISwappee } from "./interfaces/ISwappee.sol";
-
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
+
+import { IBGTIncentiveDistributor } from "src/interfaces/external/IBGTIncentiveDistributor.sol";
+import { IOBRouter } from "src/interfaces/external/IOBRouter.sol";
+import { ISwappee } from "src/interfaces/ISwappee.sol";
 
 contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
@@ -161,58 +161,6 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
     }
 
     /// @inheritdoc ISwappee
-    function swappee(
-        IBGTIncentiveDistributor.Claim[] calldata claims,
-        SwapInfo[] calldata swapInfos,
-        address tokenOut
-    )
-        public
-        onlyRole(SWAP_ROLE)
-    {
-        _claimIncentives(claims);
-
-        // Accounting tokens in
-        address token;
-        for (uint256 i; i < claims.length; i++) {
-            token = _getClaimToken(claims[i].identifier);
-            if (token == tokenOut) {
-                continue;
-            }
-
-            unchecked {
-                amountsClaimedPerWallet[token][claims[i].account] += claims[i].amount;
-            }
-        }
-
-        // Pull tokens from users
-        for (uint256 i; i < swapInfos.length; i++) {
-            token = swapInfos[i].routerParams.swapTokenInfo.inputToken;
-            uint256 usersLength = swapInfos[i].userInfos.length;
-            address user;
-            uint256 amount;
-            for (uint256 j; j < usersLength;) {
-                user = swapInfos[i].userInfos[j].user;
-                amount = swapInfos[i].userInfos[j].amountIn;
-
-                if (amountsClaimedPerWallet[token][user] != amount) {
-                    revert InvalidAmount();
-                }
-
-                IERC20(token).transferFrom(user, address(this), amount);
-
-                unchecked {
-                    amountsClaimedPerWallet[token][user] -= amount;
-                    ++j;
-                }
-            }
-            unchecked {
-                ++i;
-            }
-        }
-        _swapTokens(swapInfos, tokenOut);
-    }
-
-    /// @inheritdoc ISwappee
     function withdraw(address token, uint256 amount) public {
         uint256 amountToWithdraw = amounts[token][msg.sender];
         if (amountToWithdraw < amount) revert InvalidAmount();
@@ -248,54 +196,6 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
 
     function _claimIncentives(IBGTIncentiveDistributor.Claim[] memory claims) internal {
         IBGTIncentiveDistributor(bgtIncentivesDistributor).claim(claims);
-    }
-
-    function _swapTokens(SwapInfo[] memory swapInfos, address tokenOut) internal {
-        RouterParams memory routerParams;
-        for (uint256 i = 0; i < swapInfos.length; i++) {
-            routerParams = swapInfos[i].routerParams;
-
-            address inputToken = routerParams.swapTokenInfo.inputToken;
-
-            IERC20(inputToken).approve(aggregator, routerParams.swapTokenInfo.inputAmount);
-            uint256 amountOut = _swapToken(
-                routerParams.swapTokenInfo,
-                routerParams.pathDefinition,
-                routerParams.executor,
-                routerParams.referralCode,
-                tokenOut
-            );
-            uint256 fee = FixedPointMathLib.fullMulDiv(amountOut, percentageFee, ONE_HUNDRED_PERCENT);
-            accruedFees[routerParams.swapTokenInfo.outputToken] += fee;
-
-            _accountPerUser(
-                swapInfos[i].userInfos,
-                routerParams.swapTokenInfo.inputAmount,
-                routerParams.swapTokenInfo.outputToken,
-                amountOut - fee
-            );
-        }
-    }
-
-    function _accountPerUser(
-        UserInfo[] memory userInfos,
-        uint256 totalAmountIn,
-        address outputToken,
-        uint256 amountOut
-    )
-        internal
-    {
-        uint256 userPercentage;
-        uint256 userAmount;
-        for (uint256 i = 0; i < userInfos.length; i++) {
-            // Scale by WAD^2 (1e36) to maintain precision for very small percentages
-            // WAD is the standard scaling factor (1e18) used in FixedPointMathLib
-            userPercentage = FixedPointMathLib.fullMulDiv(userInfos[i].amountIn, 1e36, totalAmountIn);
-            userAmount = FixedPointMathLib.fullMulDiv(amountOut, userPercentage, 1e36);
-            amounts[outputToken][userInfos[i].user] += userAmount;
-
-            emit Accounted(outputToken, userInfos[i].user, userAmount);
-        }
     }
 
     function _getClaimToken(bytes32 identifier) internal view returns (address) {
