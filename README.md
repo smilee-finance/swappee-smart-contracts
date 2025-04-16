@@ -17,11 +17,13 @@ This repository contains the smart contracts for the Swappee protocol. The proje
 1. Clone the repository.
 
 2. Install dependencies:
+
 ```bash
 bun install
 ```
 
 3. Install Foundry dependencies:
+
 ```bash
 forge install
 ```
@@ -50,6 +52,7 @@ forge test
 ## Configuration
 
 The project is configured with the following settings:
+
 - Solidity version: 0.8.28
 - EVM version: Cancun
 

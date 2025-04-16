@@ -68,7 +68,12 @@ interface IOBRouter {
     /// @param executor Address of contract that will execute the path
     /// @param referralCode referral code to specify the source of the swap
 
-    function swap(swapTokenInfo memory tokenInfo, bytes calldata pathDefinition, address executor, uint32 referralCode)
+    function swap(
+        swapTokenInfo memory tokenInfo,
+        bytes calldata pathDefinition,
+        address executor,
+        uint32 referralCode
+    )
         external
         payable
         returns (uint256 amountOut);
@@ -85,5 +90,7 @@ interface IOBRouter {
         bytes calldata pathDefinition,
         address executor,
         uint32 referralCode
-    ) external returns (uint256 amountOut);
+    )
+        external
+        returns (uint256 amountOut);
 }

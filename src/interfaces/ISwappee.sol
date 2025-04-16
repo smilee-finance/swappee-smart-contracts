@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IOBRouter} from "./external/IOBRouter.sol";
-import {IBGTIncentiveDistributor} from "./external/IBGTIncentiveDistributor.sol";
+import { IOBRouter } from "./external/IOBRouter.sol";
+import { IBGTIncentiveDistributor } from "./external/IBGTIncentiveDistributor.sol";
 
 /**
  * @title ISwappee
@@ -41,8 +41,6 @@ interface ISwappee {
      * @param userInfos Array of user information for the swap
      */
     struct SwapInfo {
-        address inputToken;
-        uint256 totalAmountIn;
         RouterParams routerParams;
         UserInfo[] userInfos;
     }
@@ -76,9 +74,15 @@ interface ISwappee {
     error TransferFailed();
     /// @notice Error thrown when the percentage fee is invalid
     error InvalidPercentageFee();
+    /// @notice Error thrown when a user is invalid
+    error InvalidUser();
+    /// @notice Error thrown when an invariant check fails
+    error InvariantCheckFailed();
 
     /// @notice Emitted when the BGT incentives distributor is updated
-    event BgtIncentivesDistributorUpdated(address indexed oldBgtIncentivesDistributor, address indexed newBgtIncentivesDistributor);
+    event BgtIncentivesDistributorUpdated(
+        address indexed oldBgtIncentivesDistributor, address indexed newBgtIncentivesDistributor
+    );
     /// @notice Emitted when the aggregator is updated
     event AggregatorUpdated(address indexed oldAggregator, address indexed newAggregator);
     /// @notice Emitted when the percentage fee is updated
@@ -92,10 +96,31 @@ interface ISwappee {
 
     /**
      * @notice Executes a swappee operation
+     * @dev Use this function while doing a swap for a single user
+     * @param claims Array of incentive claims to process
+     * @param routerParams Array of router parameters for token swaps
+     * @param tokenOut The address of the token to be received
+     */
+    function swappee(
+        IBGTIncentiveDistributor.Claim[] calldata claims,
+        RouterParams[] memory routerParams,
+        address tokenOut
+    )
+        external;
+
+    /**
+     * @notice Executes a swappee operation
+     * @dev This function is callable only by a wallet that has been granted the right role
      * @param claims Array of incentive claims to process
      * @param swapInfos Array of swap information for token swaps
+     * @param tokenOut The address of the token to be received
      */
-    function swappee(IBGTIncentiveDistributor.Claim[] calldata claims, SwapInfo[] calldata swapInfos) external;
+    function swappee(
+        IBGTIncentiveDistributor.Claim[] calldata claims,
+        SwapInfo[] calldata swapInfos,
+        address tokenOut
+    )
+        external;
 
     /**
      * @notice Withdraws swapped tokens from the contract

@@ -2,11 +2,27 @@
   "name": "swappee",
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.0.0"
+    "@types/node": "^20.14.2",
+    "prettier": "^3.3.1",
+    "solhint": "^5.0.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0",
+    "viem": "^2.13.6"
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.1.0",
     "@openzeppelin/contracts-upgradeable": "^5.1.0",
     "solady": "^0.1.14"
+  },
+  "scripts": {
+    "clean": "forge clean",
+    "build": "forge build",
+    "build-extra-output": "forge build --extra-output-files bin --extra-output-files abi",
+    "lint": "bun run fmt:sol && bun run prettier:check",
+    "lint:fix": "bun run prettier:write && forge fmt",
+    "fmt:sol": "forge fmt --check",
+    "lint:sol": "bun solhint {script,src,test}/**/*.sol",
+    "prettier:check": "prettier --check **/*.{json,md,yml} --ignore-path=.prettierignore",
+    "prettier:write": "prettier --write **/*.{json,md,yml} --ignore-path=.prettierignore"
   }
 }

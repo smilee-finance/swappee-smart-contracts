@@ -1,17 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { AccessControlUpgradeable } from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import { IBGTIncentiveDistributor } from "./interfaces/external/IBGTIncentiveDistributor.sol";
+import { IOBRouter } from "./interfaces/external/IOBRouter.sol";
+import { ISwappee } from "./interfaces/ISwappee.sol";
 
-import {IBGTIncentiveDistributor} from "./interfaces/external/IBGTIncentiveDistributor.sol";
-import {IOBRouter} from "./interfaces/external/IOBRouter.sol";
-import {ISwappee} from "./interfaces/ISwappee.sol";
+import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
 
-import {FixedPointMathLib} from "@solady/utils/FixedPointMathLib.sol";
+contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
+    using EnumerableSet for EnumerableSet.AddressSet;
 
-contract Swappee is ISwappee, Ownable {
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
+    bytes32 public constant SWAP_ROLE = keccak256("SWAP_ROLE");
 
     address public bgtIncentivesDistributor;
     address public aggregator;
@@ -23,37 +27,52 @@ contract Swappee is ISwappee, Ownable {
     /// @dev token => user => amount
     mapping(address => mapping(address => uint256)) public amounts;
 
-    receive() external payable {}
+    // Following variables are used to prevent tampered inputs (at the end of the swap they should return to the
+    // initial state)
+    /// @dev token => user => amount
+    mapping(address => mapping(address => uint256)) internal amountsClaimedPerWallet;
 
-    constructor(
-        address _bgtIncentivesDistributor,
-        address _aggregator
-    ) Ownable(msg.sender) {
+    EnumerableSet.AddressSet internal tokensToSwap;
+
+    modifier invariantCheck() {
+        _;
+        _invariantCheck();
+    }
+
+    receive() external payable { }
+
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _bgtIncentivesDistributor, address _aggregator) public initializer {
+        __UUPSUpgradeable_init();
+        __AccessControl_init();
+
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
         if (_isAddressZero(_aggregator)) revert AddressZero();
 
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
         aggregator = _aggregator;
+
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
+
+    function _authorizeUpgrade(address newImplementation) internal virtual override onlyRole(DEFAULT_ADMIN_ROLE) { }
 
     /// @notice Sets the BGT incentives distributor
     /// @param _bgtIncentivesDistributor The address of the new BGT incentives distributor
-    function setBgtIncentivesDistributor(
-        address _bgtIncentivesDistributor
-    ) public onlyOwner {
+    function setBgtIncentivesDistributor(address _bgtIncentivesDistributor) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_isAddressZero(_bgtIncentivesDistributor)) revert AddressZero();
         address oldBgtIncentivesDistributor = bgtIncentivesDistributor;
         bgtIncentivesDistributor = _bgtIncentivesDistributor;
 
-        emit BgtIncentivesDistributorUpdated(
-            oldBgtIncentivesDistributor,
-            _bgtIncentivesDistributor
-        );
+        emit BgtIncentivesDistributorUpdated(oldBgtIncentivesDistributor, _bgtIncentivesDistributor);
     }
 
     /// @notice Sets the aggregator
     /// @param _aggregator The address of the new aggregator
-    function setAggregator(address _aggregator) public onlyOwner {
+    function setAggregator(address _aggregator) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_isAddressZero(_aggregator)) revert AddressZero();
         address oldAggregator = aggregator;
         aggregator = _aggregator;
@@ -63,29 +82,134 @@ contract Swappee is ISwappee, Ownable {
 
     /// @notice Sets the percentage fee
     /// @param _percentageFee The new percentage fee
-    function setPercentageFee(uint16 _percentageFee) public onlyOwner {
+    function setPercentageFee(uint16 _percentageFee) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_percentageFee > ONE_HUNDRED_PERCENT) revert InvalidPercentageFee();
         percentageFee = _percentageFee;
 
         emit PercentageFeeUpdated(_percentageFee);
     }
 
+    function swappee(
+        IBGTIncentiveDistributor.Claim[] calldata claims,
+        RouterParams[] memory routerParams,
+        address tokenOut
+    )
+        public
+        invariantCheck
+    {
+        for (uint256 i; i < claims.length; i++) {
+            // User can only claim for themselves
+            if (claims[i].account != msg.sender) {
+                revert InvalidUser();
+            }
+
+            address token = _getClaimToken(claims[i].identifier);
+            // If token in and token out are the same skip accounting
+            if (token == tokenOut) {
+                continue;
+            }
+
+            tokensToSwap.add(token);
+            amountsClaimedPerWallet[token][claims[i].account] += claims[i].amount;
+        }
+
+        _claimIncentives(claims);
+
+        for (uint256 i; i < routerParams.length; i++) {
+            RouterParams memory routerParam = routerParams[i];
+            address inputToken = routerParam.swapTokenInfo.inputToken;
+            address outputToken = routerParam.swapTokenInfo.outputToken;
+
+            uint256 amount = amountsClaimedPerWallet[inputToken][msg.sender];
+            IERC20(inputToken).transferFrom(msg.sender, address(this), amount);
+
+            unchecked {
+                amountsClaimedPerWallet[inputToken][msg.sender] -= amount;
+            }
+
+            if (routerParam.swapTokenInfo.inputAmount != amount) {
+                revert InvalidAmount();
+            }
+
+            IERC20(inputToken).approve(aggregator, routerParam.swapTokenInfo.inputAmount);
+
+            // Override router params to avoid tempered inputs
+            routerParam.swapTokenInfo.outputReceiver = address(this);
+            routerParam.swapTokenInfo.outputToken = tokenOut;
+
+            uint256 amountOut = _swapToken(
+                routerParam.swapTokenInfo,
+                routerParam.pathDefinition,
+                routerParam.executor,
+                routerParam.referralCode,
+                tokenOut
+            );
+
+            if (amountOut > 0) {
+                uint256 fee = FixedPointMathLib.fullMulDiv(amountOut, percentageFee, ONE_HUNDRED_PERCENT);
+                // Account for the fee
+                accruedFees[outputToken] += fee;
+
+                if (amountOut > fee) {
+                    unchecked {
+                        amounts[outputToken][msg.sender] += amountOut - fee;
+                        emit Accounted(outputToken, msg.sender, amountOut - fee);
+                    }
+                }
+            }
+        }
+    }
+
     /// @inheritdoc ISwappee
     function swappee(
         IBGTIncentiveDistributor.Claim[] calldata claims,
-        SwapInfo[] calldata swapInfos
-    ) public {
+        SwapInfo[] calldata swapInfos,
+        address tokenOut
+    )
+        public
+        onlyRole(SWAP_ROLE)
+    {
         _claimIncentives(claims);
-        // Pull tokens from users after claim
-        for (uint256 i = 0; i < claims.length; i++) {
-            address token = _getClaimToken(claims[i].identifier);
-            IERC20(token).transferFrom(
-                claims[i].account,
-                address(this),
-                claims[i].amount
-            );
+
+        // Accounting tokens in
+        address token;
+        for (uint256 i; i < claims.length; i++) {
+            token = _getClaimToken(claims[i].identifier);
+            if (token == tokenOut) {
+                continue;
+            }
+
+            unchecked {
+                amountsClaimedPerWallet[token][claims[i].account] += claims[i].amount;
+            }
         }
-        _swapTokens(swapInfos);
+
+        // Pull tokens from users
+        for (uint256 i; i < swapInfos.length; i++) {
+            token = swapInfos[i].routerParams.swapTokenInfo.inputToken;
+            uint256 usersLength = swapInfos[i].userInfos.length;
+            address user;
+            uint256 amount;
+            for (uint256 j; j < usersLength;) {
+                user = swapInfos[i].userInfos[j].user;
+                amount = swapInfos[i].userInfos[j].amountIn;
+
+                if (amountsClaimedPerWallet[token][user] != amount) {
+                    revert InvalidAmount();
+                }
+
+                IERC20(token).transferFrom(user, address(this), amount);
+
+                unchecked {
+                    amountsClaimedPerWallet[token][user] -= amount;
+                    ++j;
+                }
+            }
+            unchecked {
+                ++i;
+            }
+        }
+        _swapTokens(swapInfos, tokenOut);
     }
 
     /// @inheritdoc ISwappee
@@ -98,14 +222,14 @@ contract Swappee is ISwappee, Ownable {
             amounts[token][msg.sender] -= amount;
         }
 
-        (bool success, ) = payable(msg.sender).call{value: amount}("");
+        (bool success,) = payable(msg.sender).call{ value: amount }("");
         if (!success) revert TransferFailed();
 
         emit Withdraw(msg.sender, amount);
     }
 
     /// @inheritdoc ISwappee
-    function withdrawFees(address token, uint256 amount) public onlyOwner {
+    function withdrawFees(address token, uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) {
         if (accruedFees[token] < amount) revert InvalidAmount();
 
         unchecked {
@@ -113,7 +237,7 @@ contract Swappee is ISwappee, Ownable {
         }
 
         if (token == address(0)) {
-            (bool success, ) = payable(msg.sender).call{value: amount}("");
+            (bool success,) = payable(msg.sender).call{ value: amount }("");
             if (!success) revert TransferFailed();
         } else {
             IERC20(token).transfer(msg.sender, amount);
@@ -122,36 +246,31 @@ contract Swappee is ISwappee, Ownable {
         emit WithdrawFees(token, msg.sender, amount);
     }
 
-    function _claimIncentives(
-        IBGTIncentiveDistributor.Claim[] memory claims
-    ) internal {
+    function _claimIncentives(IBGTIncentiveDistributor.Claim[] memory claims) internal {
         IBGTIncentiveDistributor(bgtIncentivesDistributor).claim(claims);
     }
 
-    function _swapTokens(SwapInfo[] memory swapInfos) internal {
+    function _swapTokens(SwapInfo[] memory swapInfos, address tokenOut) internal {
         RouterParams memory routerParams;
         for (uint256 i = 0; i < swapInfos.length; i++) {
             routerParams = swapInfos[i].routerParams;
-            IERC20(swapInfos[i].inputToken).approve(
-                aggregator,
-                swapInfos[i].totalAmountIn
-            );
+
+            address inputToken = routerParams.swapTokenInfo.inputToken;
+
+            IERC20(inputToken).approve(aggregator, routerParams.swapTokenInfo.inputAmount);
             uint256 amountOut = _swapToken(
                 routerParams.swapTokenInfo,
                 routerParams.pathDefinition,
                 routerParams.executor,
-                routerParams.referralCode
+                routerParams.referralCode,
+                tokenOut
             );
-            uint256 fee = FixedPointMathLib.fullMulDiv(
-                amountOut,
-                percentageFee,
-                ONE_HUNDRED_PERCENT
-            );
+            uint256 fee = FixedPointMathLib.fullMulDiv(amountOut, percentageFee, ONE_HUNDRED_PERCENT);
             accruedFees[routerParams.swapTokenInfo.outputToken] += fee;
 
             _accountPerUser(
                 swapInfos[i].userInfos,
-                swapInfos[i].totalAmountIn,
+                routerParams.swapTokenInfo.inputAmount,
                 routerParams.swapTokenInfo.outputToken,
                 amountOut - fee
             );
@@ -163,34 +282,24 @@ contract Swappee is ISwappee, Ownable {
         uint256 totalAmountIn,
         address outputToken,
         uint256 amountOut
-    ) internal {
+    )
+        internal
+    {
         uint256 userPercentage;
         uint256 userAmount;
         for (uint256 i = 0; i < userInfos.length; i++) {
             // Scale by WAD^2 (1e36) to maintain precision for very small percentages
             // WAD is the standard scaling factor (1e18) used in FixedPointMathLib
-            userPercentage = FixedPointMathLib.fullMulDiv(
-                userInfos[i].amountIn,
-                1e36,
-                totalAmountIn
-            );
-            userAmount = FixedPointMathLib.fullMulDiv(
-                amountOut,
-                userPercentage,
-                1e36
-            );
+            userPercentage = FixedPointMathLib.fullMulDiv(userInfos[i].amountIn, 1e36, totalAmountIn);
+            userAmount = FixedPointMathLib.fullMulDiv(amountOut, userPercentage, 1e36);
             amounts[outputToken][userInfos[i].user] += userAmount;
 
             emit Accounted(outputToken, userInfos[i].user, userAmount);
         }
     }
 
-    function _getClaimToken(
-        bytes32 identifier
-    ) internal view returns (address) {
-        (address token, , , , ) = IBGTIncentiveDistributor(
-            bgtIncentivesDistributor
-        ).rewards(identifier);
+    function _getClaimToken(bytes32 identifier) internal view returns (address) {
+        (address token,,,,) = IBGTIncentiveDistributor(bgtIncentivesDistributor).rewards(identifier);
         return token;
     }
 
@@ -198,18 +307,33 @@ contract Swappee is ISwappee, Ownable {
         IOBRouter.swapTokenInfo memory swap,
         bytes memory pathDefinition,
         address executor,
-        uint32 referralCode
-    ) internal returns (uint256) {
-        return
-            IOBRouter(aggregator).swap(
-                swap,
-                pathDefinition,
-                executor,
-                referralCode
-            );
+        uint32 referralCode,
+        address tokenOut
+    )
+        internal
+        returns (uint256)
+    {
+        swap.outputReceiver = address(this);
+        swap.outputToken = tokenOut;
+        return IOBRouter(aggregator).swap(swap, pathDefinition, executor, referralCode);
     }
 
     function _isAddressZero(address _address) internal pure returns (bool) {
         return _address == address(0);
+    }
+
+    function _invariantCheck() internal {
+        // Validate storage
+        for (uint256 i; i < tokensToSwap.length(); i++) {
+            address token = tokensToSwap.at(i);
+            if (amountsClaimedPerWallet[token][msg.sender] != 0) {
+                revert InvariantCheckFailed();
+            }
+            tokensToSwap.remove(token);
+        }
+
+        if (tokensToSwap.length() > 0) {
+            revert InvariantCheckFailed();
+        }
     }
 }

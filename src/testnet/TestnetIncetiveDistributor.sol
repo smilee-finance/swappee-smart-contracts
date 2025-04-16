@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBGTIncentiveDistributor} from "../../src/interfaces/external/IBGTIncentiveDistributor.sol";
-import {TestnetIncentiveToken} from "./TestnetIncentiveToken.sol";
+import { IBGTIncentiveDistributor } from "../../src/interfaces/external/IBGTIncentiveDistributor.sol";
+import { TestnetIncentiveToken } from "./TestnetIncentiveToken.sol";
 
 contract TestnetIncetiveDistributor is IBGTIncentiveDistributor {
     TestnetIncentiveToken public incentiveToken;
@@ -27,30 +27,32 @@ contract TestnetIncetiveDistributor is IBGTIncentiveDistributor {
         }
     }
 
-    function rewards(
-        bytes32 /*identifier*/
-    ) external view override returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey) {
+    function rewards(bytes32 /*identifier*/ )
+        external
+        view
+        override
+        returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey)
+    {
         return (address(incentiveToken), bytes32(0), bytes32(0), block.timestamp, new bytes(0));
     }
 
     function incentiveTokensPerValidator(
         bytes calldata pubkey,
         address token
-    ) external view override returns (uint256) {}
+    )
+        external
+        view
+        override
+        returns (uint256)
+    { }
 
-    function setRewardClaimDelay(uint64 _delay) external override {}
+    function setRewardClaimDelay(uint64 _delay) external override { }
 
-    function receiveIncentive(
-        bytes calldata pubkey,
-        address token,
-        uint256 _amount
-    ) external override {}
+    function receiveIncentive(bytes calldata pubkey, address token, uint256 _amount) external override { }
 
-    function setPauseState(bool state) external override {}
+    function setPauseState(bool state) external override { }
 
-    function updateRewardsMetadata(
-        Distribution[] calldata _distributions
-    ) external override {
+    function updateRewardsMetadata(Distribution[] calldata _distributions) external override {
         uint256 activeAt;
         for (uint256 i = 0; i < _distributions.length; i++) {
             activeAt = block.timestamp + delay;

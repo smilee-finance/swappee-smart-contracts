@@ -100,7 +100,10 @@ interface IBGTIncentiveDistributor {
      * @notice Get the reward metadata for a given identifier
      * @param identifier The identifier of the reward
      */
-    function rewards(bytes32 identifier) external view returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey);
+    function rewards(bytes32 identifier)
+        external
+        view
+        returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey);
 
     /**
      * @notice Get the amount of incentive tokens held by the contract for a validator

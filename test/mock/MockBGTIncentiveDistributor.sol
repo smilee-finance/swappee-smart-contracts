@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {IBGTIncentiveDistributor} from "../../src/interfaces/external/IBGTIncentiveDistributor.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { IBGTIncentiveDistributor } from "../../src/interfaces/external/IBGTIncentiveDistributor.sol";
+import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
     address public mockedToken;
@@ -15,7 +15,11 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
     function getDummyClaims(
         address[] memory accounts,
         uint256[] memory amounts
-    ) public pure returns (Claim[] memory) {
+    )
+        public
+        pure
+        returns (Claim[] memory)
+    {
         Claim[] memory claims = new Claim[](accounts.length);
         for (uint256 i = 0; i < accounts.length; i++) {
             claims[i] = Claim({
@@ -39,28 +43,30 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
         }
     }
 
-    function rewards(
-        bytes32 /*identifier*/
-    ) external view override returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey) {
+    function rewards(bytes32 /*identifier*/ )
+        external
+        view
+        override
+        returns (address token, bytes32 merkleRoot, bytes32 proof, uint256 activeAt, bytes memory pubkey)
+    {
         return (mockedToken, bytes32(0), bytes32(0), block.timestamp, new bytes(0));
     }
 
     function incentiveTokensPerValidator(
         bytes calldata pubkey,
         address token
-    ) external view override returns (uint256) {}
+    )
+        external
+        view
+        override
+        returns (uint256)
+    { }
 
-    function setRewardClaimDelay(uint64 _delay) external override {}
+    function setRewardClaimDelay(uint64 _delay) external override { }
 
-    function receiveIncentive(
-        bytes calldata pubkey,
-        address token,
-        uint256 _amount
-    ) external override {}
+    function receiveIncentive(bytes calldata pubkey, address token, uint256 _amount) external override { }
 
-    function setPauseState(bool state) external override {}
+    function setPauseState(bool state) external override { }
 
-    function updateRewardsMetadata(
-        Distribution[] calldata _distributions
-    ) external override {}
+    function updateRewardsMetadata(Distribution[] calldata _distributions) external override { }
 }
