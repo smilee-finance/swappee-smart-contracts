@@ -56,6 +56,73 @@ contract SwappeeTest is Test {
         vm.stopPrank();
     }
 
+    function testFuzz_setBgtIncentivesDistributor(address distributor) public {
+        require(distributor != address(0));
+        vm.prank(owner);
+        swappee.setBgtIncentivesDistributor(distributor);
+        assertEq(swappee.bgtIncentivesDistributor(), distributor);
+    }
+
+    function testFuzz_setBgtIncentivesDistributor_ZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(ISwappee.AddressZero.selector);
+        swappee.setBgtIncentivesDistributor(address(0));
+    }
+
+    function testFuzz_setBgtIncentivesDistributor_NotAdmin(address notAdmin) public {
+        bytes32 role = swappee.DEFAULT_ADMIN_ROLE();
+        vm.prank(notAdmin);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, notAdmin, role)
+        );
+        swappee.setBgtIncentivesDistributor(address(0));
+    }
+
+    function testFuzz_setAggregator(address aggregator) public {
+        require(aggregator != address(0));
+        vm.prank(owner);
+        swappee.setAggregator(aggregator);
+        assertEq(swappee.aggregator(), aggregator);
+    }
+
+    function testFuzz_setAggregator_ZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(ISwappee.AddressZero.selector);
+        swappee.setAggregator(address(0));
+    }
+
+    function testFuzz_setAggregator_NotAdmin(address notAdmin) public {
+        bytes32 role = swappee.DEFAULT_ADMIN_ROLE();
+        vm.prank(notAdmin);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, notAdmin, role)
+        );
+        swappee.setAggregator(address(0));
+    }
+
+    function testFuzz_setPercentageFee(uint16 fee) public {
+        fee = uint16(_bound(uint256(fee), 0, uint256(ONE_HUNDRED_PERCENT)));
+        vm.prank(owner);
+        swappee.setPercentageFee(fee);
+        assertEq(swappee.percentageFee(), fee);
+    }
+
+    function testFuzz_setPercentageFee_NotAdmin(address notAdmin, uint16 fee) public {
+        bytes32 role = swappee.DEFAULT_ADMIN_ROLE();
+        vm.prank(notAdmin);
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, notAdmin, role)
+        );
+        swappee.setPercentageFee(fee);
+    }
+
+    function test_setPercentageFee_InvalidFee() public {
+        uint16 fee = ONE_HUNDRED_PERCENT + 1;
+        vm.prank(owner);
+        vm.expectRevert(ISwappee.InvalidPercentageFee.selector);
+        swappee.setPercentageFee(fee);
+    }
+
     function test_dumpIncentives_SingleUser() public {
         testFuzz_dumpIncentives_SingleUser(CLAIM_AMOUNT, PRICE);
     }
