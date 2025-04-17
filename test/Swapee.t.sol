@@ -26,7 +26,9 @@ contract SwappeeTest is Test {
 
     Swappee public swappee;
 
-    MockERC20 public mockERC20;
+    MockERC20 public claimToken1;
+    MockERC20 public claimToken2;
+
     MockOBRouter public mockOBRouter;
     MockBGTIncentiveDistributor public mockBGTIncentiveDistributor;
 
@@ -41,14 +43,17 @@ contract SwappeeTest is Test {
     ISwappee.RouterParams public _dummyRouterParams;
 
     function setUp() public {
-        mockERC20 = new MockERC20("MockERC20", "MRC20", 18);
+        claimToken1 = new MockERC20("MockERC20", "MRC20", 18);
+        claimToken2 = new MockERC20("MockERC20", "MRC20", 18);
 
         mockOBRouter = new MockOBRouter();
         mockOBRouter.setPrice(PRICE);
 
         mockBGTIncentiveDistributor = new MockBGTIncentiveDistributor();
-        mockBGTIncentiveDistributor.setMockedToken(address(mockERC20));
-        mockERC20.mint(address(mockBGTIncentiveDistributor), type(uint256).max);
+        mockBGTIncentiveDistributor.setTokenToIdentifier(address(claimToken1), bytes32("0"));
+        mockBGTIncentiveDistributor.setTokenToIdentifier(address(claimToken2), bytes32("1"));
+        claimToken1.mint(address(mockBGTIncentiveDistributor), type(uint256).max);
+        claimToken2.mint(address(mockBGTIncentiveDistributor), type(uint256).max);
 
         vm.startPrank(owner);
         swappee = _deploySwappee();
@@ -137,14 +142,16 @@ contract SwappeeTest is Test {
         users[0] = user1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = amount;
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
-        mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
+        claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
 
         IOBRouter.swapTokenInfo memory swapTokenInfo =
-            _getSwapTokenInfo(amount, address(mockERC20), address(swappee), address(0));
+            _getSwapTokenInfo(amount, address(claimToken1), address(swappee), address(0));
         ISwappee.RouterParams memory routerParams = _getRouterParams(swapTokenInfo);
 
         ISwappee.RouterParams[] memory _routerParams = new ISwappee.RouterParams[](1);
@@ -155,9 +162,9 @@ contract SwappeeTest is Test {
         vm.prank(user1);
         swappee.swappee(claims, _routerParams, address(0));
 
-        assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
-        assertEq(mockERC20.balanceOf(address(swappee)), 0);
-        assertEq(mockERC20.balanceOf(user1), 0);
+        assertEq(claimToken1.balanceOf(address(mockOBRouter)), amount);
+        assertEq(claimToken1.balanceOf(address(swappee)), 0);
+        assertEq(claimToken1.balanceOf(user1), 0);
 
         assertApproxEqAbs(swappee.amounts(address(0), user1), expectedAmount, 1);
         assertEq(swappee.accruedFees(address(0)), 0); // no fees
@@ -179,14 +186,16 @@ contract SwappeeTest is Test {
         users[0] = user1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = amount;
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
-        mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
+        claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
 
         IOBRouter.swapTokenInfo memory swapTokenInfo =
-            _getSwapTokenInfo(amount, address(mockERC20), address(swappee), address(0));
+            _getSwapTokenInfo(amount, address(claimToken1), address(swappee), address(0));
         ISwappee.RouterParams memory routerParams = _getRouterParams(swapTokenInfo);
 
         ISwappee.RouterParams[] memory _routerParams = new ISwappee.RouterParams[](1);
@@ -200,9 +209,9 @@ contract SwappeeTest is Test {
         vm.prank(user1);
         swappee.swappee(claims, _routerParams, address(0));
 
-        assertEq(mockERC20.balanceOf(address(mockOBRouter)), amount);
-        assertEq(mockERC20.balanceOf(address(swappee)), 0);
-        assertEq(mockERC20.balanceOf(user1), 0);
+        assertEq(claimToken1.balanceOf(address(mockOBRouter)), amount);
+        assertEq(claimToken1.balanceOf(address(swappee)), 0);
+        assertEq(claimToken1.balanceOf(user1), 0);
 
         assertApproxEqAbs(swappee.amounts(address(0), user1), expectedAmountWithFees, 1);
         assertApproxEqAbs(swappee.accruedFees(address(0)), expectedFees, 1);
@@ -219,11 +228,13 @@ contract SwappeeTest is Test {
         users[0] = user1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = amount;
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
-        mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
+        claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
 
         // Empty swap info array
         ISwappee.RouterParams[] memory _routerParams = new ISwappee.RouterParams[](0);
@@ -239,14 +250,16 @@ contract SwappeeTest is Test {
         users[0] = user1;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = amount;
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts);
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
-        mockERC20.approve(address(swappee), INFINITE_ALLOWANCE);
+        claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
 
         IOBRouter.swapTokenInfo memory swapTokenInfo =
-            _getSwapTokenInfo(amount, address(mockERC20), address(swappee), address(0));
+            _getSwapTokenInfo(amount, address(claimToken1), address(swappee), address(0));
         ISwappee.RouterParams memory routerParams = _getRouterParams(swapTokenInfo);
 
         ISwappee.RouterParams[] memory _routerParams = new ISwappee.RouterParams[](1);
@@ -255,6 +268,64 @@ contract SwappeeTest is Test {
         vm.prank(user2);
         vm.expectRevert(ISwappee.InvalidUser.selector);
         swappee.swappee(claims, _routerParams, address(0));
+    }
+
+    function testFuzz_dumpIncentives_SingleUser_MultipleTokens(uint256 amountToken1, uint256 amountToken2, uint256 price) public {
+        amountToken1 = _bound(amountToken1, 1, 100_000_000e18);
+        amountToken2 = _bound(amountToken2, 1, 100_000_000e18);
+        price = _bound(price, 0.000001e18, 1_000_000e18);
+
+        mockOBRouter.setPrice(price);
+
+        address[] memory users = new address[](2);
+        users[0] = user1;
+        users[1] = user1;
+        uint256[] memory amounts = new uint256[](2);
+        amounts[0] = amountToken1;
+        amounts[1] = amountToken2;
+        address[] memory tokens = new address[](2);
+        tokens[0] = address(claimToken1);
+        tokens[1] = address(claimToken2);
+
+        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
+
+        vm.prank(user1);
+        claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
+        vm.prank(user1);
+        claimToken2.approve(address(swappee), INFINITE_ALLOWANCE);
+
+        ISwappee.RouterParams[] memory _routerParams = new ISwappee.RouterParams[](2);
+        IOBRouter.swapTokenInfo memory swapTokenInfo =
+            _getSwapTokenInfo(amountToken1, address(claimToken1), address(swappee), address(0));
+        ISwappee.RouterParams memory routerParams = _getRouterParams(swapTokenInfo);
+
+        _routerParams[0] = routerParams;
+
+        swapTokenInfo =
+            _getSwapTokenInfo(amountToken2, address(claimToken2), address(swappee), address(0));
+        routerParams = _getRouterParams(swapTokenInfo);
+        _routerParams[1] = routerParams;
+
+        uint256 expectedAmountToken1 = (amountToken1 * price) / 1e18;
+        uint256 expectedAmountToken2 = (amountToken2 * price) / 1e18;
+
+        vm.prank(user1);
+        swappee.swappee(claims, _routerParams, address(0));
+
+        assertEq(claimToken1.balanceOf(address(mockOBRouter)), amountToken1);
+        assertEq(claimToken1.balanceOf(address(swappee)), 0);
+        assertEq(claimToken1.balanceOf(user1), 0);
+
+        assertEq(claimToken2.balanceOf(address(mockOBRouter)), amountToken2);
+        assertEq(claimToken2.balanceOf(address(swappee)), 0);
+        assertEq(claimToken2.balanceOf(user1), 0);
+
+        assertApproxEqAbs(swappee.amounts(address(0), user1), expectedAmountToken1 + expectedAmountToken2, 1);
+        assertEq(swappee.accruedFees(address(0)), 0); // no fees
+
+
+        uint256 valuesLength = uint256(vm.load(address(swappee), bytes32(uint256(5))));
+        assertEq(valuesLength, 0);
     }
 
     function _getRouterParams(IOBRouter.swapTokenInfo memory swapTokenInfo)
@@ -326,7 +397,7 @@ contract SwappeeTest is Test {
         ISwappee.UserInfo[] memory _userInfos = _getUserInfos(users, amountsIn);
 
         IOBRouter.swapTokenInfo memory _swapTokenInfo =
-            _getSwapTokenInfo(amountIn, address(mockERC20), address(swappee), address(0));
+            _getSwapTokenInfo(amountIn, address(claimToken1), address(swappee), address(0));
         ISwappee.RouterParams memory _routerParams = _getRouterParams(_swapTokenInfo);
 
         ISwappee.SwapInfo[] memory swapInfos = new ISwappee.SwapInfo[](1);

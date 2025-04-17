@@ -227,8 +227,9 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
 
     function _invariantCheck() internal {
         // Validate storage
-        for (uint256 i; i < tokensToSwap.length(); i++) {
-            address token = tokensToSwap.at(i);
+        address[] memory tokens = tokensToSwap.values();
+        for (uint256 i; i < tokens.length; i++) {
+            address token = tokens[i];
             if (amountsClaimedPerWallet[token][msg.sender] != 0) {
                 revert InvariantCheckFailed();
             }
