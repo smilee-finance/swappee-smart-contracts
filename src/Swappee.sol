@@ -24,9 +24,6 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
     /// @dev token => amount
     mapping(address => uint256) public accruedFees;
 
-    /// @dev token => user => amount
-    mapping(address => mapping(address => uint256)) public amounts;
-
     // Following variables are used to prevent tampered inputs (at the end of the swap they should return to the
     // initial state)
     /// @dev token => user => amount
@@ -152,31 +149,20 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
 
                 if (amountOut > fee) {
                     unchecked {
-                        amounts[outputToken][msg.sender] += amountOut - fee;
-                        emit Accounted(outputToken, msg.sender, amountOut - fee);
+                        amountOut = amountOut - fee;
                     }
+
+                    if (outputToken == address(0)) {
+                        (bool success,) = payable(msg.sender).call{ value: amountOut }("");
+                        if (!success) revert TransferFailed();
+                    } else {
+                        IERC20(outputToken).transfer(msg.sender, amountOut);
+                    }
+
+                    emit Swappee(outputToken, msg.sender, amountOut);
                 }
             }
         }
-    }
-
-    /// @inheritdoc ISwappee
-    function withdraw(address token, uint256 amount) public {
-        uint256 amountWithdrawable = amounts[token][msg.sender];
-        if (amountWithdrawable < amount) revert InvalidAmount();
-
-        unchecked {
-            amounts[token][msg.sender] -= amount;
-        }
-
-        if (token == address(0)) {
-            (bool success,) = payable(msg.sender).call{ value: amount }("");
-            if (!success) revert TransferFailed();
-        } else {
-            IERC20(token).transfer(msg.sender, amount);
-        }
-
-        emit Withdraw(msg.sender, amount);
     }
 
     /// @inheritdoc ISwappee

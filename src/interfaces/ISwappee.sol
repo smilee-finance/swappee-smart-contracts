@@ -92,7 +92,7 @@ interface ISwappee {
     /// @notice Emitted when fees are withdrawn
     event WithdrawFees(address indexed token, address indexed user, uint256 amount);
     /// @notice Emitted when an amount is accounted for
-    event Accounted(address indexed token, address indexed user, uint256 amount);
+    event Swappee(address indexed token, address indexed user, uint256 amount);
 
     /**
      * @notice Executes a swappee operation
@@ -107,13 +107,6 @@ interface ISwappee {
         address tokenOut
     )
         external;
-
-    /**
-     * @notice Withdraws swapped tokens from the contract
-     * @param token The address of the token to withdraw
-     * @param amount The amount of tokens to withdraw
-     */
-    function withdraw(address token, uint256 amount) external;
 
     /**
      * @notice Withdraws fees from the contract

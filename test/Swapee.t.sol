@@ -61,11 +61,11 @@ contract SwappeeTest is Test {
         vm.stopPrank();
     }
 
-    function testFuzz_setBgtIncentivesDistributor(address distributor) public {
-        require(distributor != address(0));
+    function testFuzz_setBgtIncentivesDistributor(string memory distributor) public {
+        address distributorAddress = makeAddr(distributor);
         vm.prank(owner);
-        swappee.setBgtIncentivesDistributor(distributor);
-        assertEq(swappee.bgtIncentivesDistributor(), distributor);
+        swappee.setBgtIncentivesDistributor(distributorAddress);
+        assertEq(swappee.bgtIncentivesDistributor(), distributorAddress);
     }
 
     function testFuzz_setBgtIncentivesDistributor_ZeroAddress() public {
@@ -83,11 +83,11 @@ contract SwappeeTest is Test {
         swappee.setBgtIncentivesDistributor(address(0));
     }
 
-    function testFuzz_setAggregator(address aggregator) public {
-        require(aggregator != address(0));
+    function testFuzz_setAggregator_a(string memory aggregator) public {
+        address aggregatorAddress = makeAddr(aggregator);
         vm.prank(owner);
-        swappee.setAggregator(aggregator);
-        assertEq(swappee.aggregator(), aggregator);
+        swappee.setAggregator(aggregatorAddress);
+        assertEq(swappee.aggregator(), aggregatorAddress);
     }
 
     function testFuzz_setAggregator_ZeroAddress() public {
@@ -159,6 +159,8 @@ contract SwappeeTest is Test {
 
         uint256 expectedAmount = (amount * price) / 1e18;
 
+        uint256 userAmountBefore = user1.balance;
+
         vm.prank(user1);
         swappee.swappee(claims, _routerParams, address(0));
 
@@ -166,7 +168,8 @@ contract SwappeeTest is Test {
         assertEq(claimToken1.balanceOf(address(swappee)), 0);
         assertEq(claimToken1.balanceOf(user1), 0);
 
-        assertApproxEqAbs(swappee.amounts(address(0), user1), expectedAmount, 1);
+        uint256 userAmountAfter = user1.balance;
+        assertApproxEqAbs(userAmountAfter - userAmountBefore, expectedAmount, 1);
         assertEq(swappee.accruedFees(address(0)), 0); // no fees
 
         uint256 valuesLength = uint256(vm.load(address(swappee), bytes32(uint256(5))));
@@ -206,6 +209,8 @@ contract SwappeeTest is Test {
         uint256 expectedAmountWithFees = (expectedAmount * userPercentage) / ONE_HUNDRED_PERCENT;
         uint256 expectedFees = (expectedAmount * FEE) / ONE_HUNDRED_PERCENT;
 
+        uint256 userAmountBefore = user1.balance;
+
         vm.prank(user1);
         swappee.swappee(claims, _routerParams, address(0));
 
@@ -213,7 +218,8 @@ contract SwappeeTest is Test {
         assertEq(claimToken1.balanceOf(address(swappee)), 0);
         assertEq(claimToken1.balanceOf(user1), 0);
 
-        assertApproxEqAbs(swappee.amounts(address(0), user1), expectedAmountWithFees, 1);
+        uint256 userAmountAfter = user1.balance;
+        assertApproxEqAbs(userAmountAfter - userAmountBefore, expectedAmountWithFees, 1);
         assertApproxEqAbs(swappee.accruedFees(address(0)), expectedFees, 1);
 
         uint256 valuesLength = uint256(vm.load(address(swappee), bytes32(uint256(5))));
@@ -309,6 +315,8 @@ contract SwappeeTest is Test {
         uint256 expectedAmountToken1 = (amountToken1 * price) / 1e18;
         uint256 expectedAmountToken2 = (amountToken2 * price) / 1e18;
 
+        uint256 userAmountBefore = user1.balance;
+
         vm.prank(user1);
         swappee.swappee(claims, _routerParams, address(0));
 
@@ -320,7 +328,8 @@ contract SwappeeTest is Test {
         assertEq(claimToken2.balanceOf(address(swappee)), 0);
         assertEq(claimToken2.balanceOf(user1), 0);
 
-        assertApproxEqAbs(swappee.amounts(address(0), user1), expectedAmountToken1 + expectedAmountToken2, 1);
+        uint256 userAmountAfter = user1.balance;
+        assertApproxEqAbs(userAmountAfter - userAmountBefore, expectedAmountToken1 + expectedAmountToken2, 1);
         assertEq(swappee.accruedFees(address(0)), 0); // no fees
 
 
