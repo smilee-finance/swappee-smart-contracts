@@ -6,13 +6,14 @@ import { EnumerableSet } from "@openzeppelin/contracts/utils/structs/EnumerableS
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import { FixedPointMathLib } from "@solady/utils/FixedPointMathLib.sol";
-
+import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import { IBGTIncentiveDistributor } from "src/interfaces/external/IBGTIncentiveDistributor.sol";
 import { IOBRouter } from "src/interfaces/external/IOBRouter.sol";
 import { ISwappee } from "src/interfaces/ISwappee.sol";
 
 contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
     using EnumerableSet for EnumerableSet.AddressSet;
+    using SafeERC20 for IERC20;
 
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
     bytes32 public constant SWAP_ROLE = keccak256("SWAP_ROLE");
@@ -118,7 +119,7 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
             address outputToken = routerParam.swapTokenInfo.outputToken;
 
             uint256 amount = amountsClaimedPerWallet[inputToken][msg.sender];
-            IERC20(inputToken).transferFrom(msg.sender, address(this), amount);
+            IERC20(inputToken).safeTransferFrom(msg.sender, address(this), amount);
 
             unchecked {
                 amountsClaimedPerWallet[inputToken][msg.sender] -= amount;
@@ -156,7 +157,7 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
                         (bool success,) = payable(msg.sender).call{ value: amountOut }("");
                         if (!success) revert TransferFailed();
                     } else {
-                        IERC20(outputToken).transfer(msg.sender, amountOut);
+                        IERC20(outputToken).safeTransfer(msg.sender, amountOut);
                     }
 
                     emit Swappee(outputToken, msg.sender, amountOut);
@@ -177,7 +178,7 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
             (bool success,) = payable(msg.sender).call{ value: amount }("");
             if (!success) revert TransferFailed();
         } else {
-            IERC20(token).transfer(msg.sender, amount);
+            IERC20(token).safeTransfer(msg.sender, amount);
         }
 
         emit WithdrawFees(token, msg.sender, amount);
