@@ -138,8 +138,7 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
                 routerParam.swapTokenInfo,
                 routerParam.pathDefinition,
                 routerParam.executor,
-                routerParam.referralCode,
-                tokenOut
+                routerParam.referralCode
             );
 
             if (amountOut > 0) {
@@ -196,14 +195,11 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
         IOBRouter.swapTokenInfo memory swap,
         bytes memory pathDefinition,
         address executor,
-        uint32 referralCode,
-        address tokenOut
+        uint32 referralCode
     )
         internal
         returns (uint256)
     {
-        swap.outputReceiver = address(this);
-        swap.outputToken = tokenOut;
         return IOBRouter(aggregator).swap(swap, pathDefinition, executor, referralCode);
     }
 
