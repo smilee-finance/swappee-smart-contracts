@@ -33,7 +33,6 @@ contract SwappeeTest is Test {
     MockBGTIncentiveDistributor public mockBGTIncentiveDistributor;
 
     address public owner = makeAddr("owner");
-    address public swapper = makeAddr("swapper");
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
     address public user3 = makeAddr("user3");
@@ -57,7 +56,6 @@ contract SwappeeTest is Test {
 
         vm.startPrank(owner);
         swappee = _deploySwappee();
-        swappee.grantRole(swappee.SWAP_ROLE(), swapper);
         vm.stopPrank();
     }
 

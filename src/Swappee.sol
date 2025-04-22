@@ -16,7 +16,6 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
     using SafeERC20 for IERC20;
 
     uint16 public constant ONE_HUNDRED_PERCENT = 1e4;
-    bytes32 public constant SWAP_ROLE = keccak256("SWAP_ROLE");
 
     address public bgtIncentivesDistributor;
     address public aggregator;
