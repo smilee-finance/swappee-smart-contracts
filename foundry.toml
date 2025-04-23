@@ -12,6 +12,10 @@ build_info = true
 extra_output = ["storageLayout"]
 fs_permissions = [{ access = "read", path = "./test"}]
 
+[profile.deploy]
+via_ir = true
+optimizer_runs = 666
+
 [fmt]
 bracket_spacing = true
 int_types = "long"
