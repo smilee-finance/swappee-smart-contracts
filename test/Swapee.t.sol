@@ -143,7 +143,8 @@ contract SwappeeTest is Test {
         address[] memory tokens = new address[](1);
         tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
+        IBGTIncentiveDistributor.Claim[] memory claims =
+            mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
         claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
@@ -190,7 +191,8 @@ contract SwappeeTest is Test {
         address[] memory tokens = new address[](1);
         tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
+        IBGTIncentiveDistributor.Claim[] memory claims =
+            mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
         claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
@@ -235,7 +237,8 @@ contract SwappeeTest is Test {
         address[] memory tokens = new address[](1);
         tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
+        IBGTIncentiveDistributor.Claim[] memory claims =
+            mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
         claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
@@ -257,7 +260,8 @@ contract SwappeeTest is Test {
         address[] memory tokens = new address[](1);
         tokens[0] = address(claimToken1);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
+        IBGTIncentiveDistributor.Claim[] memory claims =
+            mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
         claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
@@ -274,7 +278,13 @@ contract SwappeeTest is Test {
         swappee.swappee(claims, _routerParams, address(0));
     }
 
-    function testFuzz_dumpIncentives_SingleUser_MultipleTokens(uint256 amountToken1, uint256 amountToken2, uint256 price) public {
+    function testFuzz_dumpIncentives_SingleUser_MultipleTokens(
+        uint256 amountToken1,
+        uint256 amountToken2,
+        uint256 price
+    )
+        public
+    {
         amountToken1 = _bound(amountToken1, 1, 100_000_000e18);
         amountToken2 = _bound(amountToken2, 1, 100_000_000e18);
         price = _bound(price, 0.000001e18, 1_000_000e18);
@@ -291,7 +301,8 @@ contract SwappeeTest is Test {
         tokens[0] = address(claimToken1);
         tokens[1] = address(claimToken2);
 
-        IBGTIncentiveDistributor.Claim[] memory claims = mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
+        IBGTIncentiveDistributor.Claim[] memory claims =
+            mockBGTIncentiveDistributor.getDummyClaims(users, amounts, tokens);
 
         vm.prank(user1);
         claimToken1.approve(address(swappee), INFINITE_ALLOWANCE);
@@ -305,8 +316,7 @@ contract SwappeeTest is Test {
 
         _routerParams[0] = routerParams;
 
-        swapTokenInfo =
-            _getSwapTokenInfo(amountToken2, address(claimToken2), address(swappee), address(0));
+        swapTokenInfo = _getSwapTokenInfo(amountToken2, address(claimToken2), address(swappee), address(0));
         routerParams = _getRouterParams(swapTokenInfo);
         _routerParams[1] = routerParams;
 
@@ -329,7 +339,6 @@ contract SwappeeTest is Test {
         uint256 userAmountAfter = user1.balance;
         assertApproxEqAbs(userAmountAfter - userAmountBefore, expectedAmountToken1 + expectedAmountToken2, 1);
         assertEq(swappee.accruedFees(address(0)), 0); // no fees
-
 
         uint256 valuesLength = uint256(vm.load(address(swappee), bytes32(uint256(5))));
         assertEq(valuesLength, 0);

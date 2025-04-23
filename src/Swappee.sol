@@ -135,10 +135,7 @@ contract Swappee is ISwappee, AccessControlUpgradeable, UUPSUpgradeable {
             routerParam.swapTokenInfo.outputToken = tokenOut;
 
             uint256 amountOut = _swapToken(
-                routerParam.swapTokenInfo,
-                routerParam.pathDefinition,
-                routerParam.executor,
-                routerParam.referralCode
+                routerParam.swapTokenInfo, routerParam.pathDefinition, routerParam.executor, routerParam.referralCode
             );
 
             if (amountOut > 0) {

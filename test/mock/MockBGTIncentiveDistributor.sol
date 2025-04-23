@@ -48,7 +48,7 @@ contract MockBGTIncentiveDistributor is IBGTIncentiveDistributor {
         }
     }
 
-    function rewards(bytes32 identifier )
+    function rewards(bytes32 identifier)
         external
         view
         override

@@ -18,12 +18,11 @@ contract H01Test is Test {
     address internal userAddress = 0x7E8D41FFDbfB8Bdb5D3D4F74a9FC872496f9246e;
 
     function setUp() public {
-        vm.createSelectFork("https://rpc.berachain.com", 4043475);
+        vm.createSelectFork("https://rpc.berachain.com", 4_043_475);
 
         address swappeeImplementation = address(new Swappee());
         bytes memory data = abi.encodeCall(Swappee.initialize, (bgtIncentiveDistributor, obAggregator));
         swappee = Swappee(payable(new ERC1967Proxy(swappeeImplementation, data)));
-
     }
 
     struct JsonClaims {
@@ -58,8 +57,10 @@ contract H01Test is Test {
         console2.log("nativeBalanceAfter", nativeBalanceAfter);
         uint256 wrappedBalanceAfter = IERC20(0x6969696969696969696969696969696969696969).balanceOf(userAddress);
         console2.log("wrappedBalanceAfter", wrappedBalanceAfter);
-        assertEq(nativeBalanceAfter - nativeBalanceBefore, 425442483921888960);
-        console2.log("Native token earned (nativeBalanceAfter - nativeBalanceBefore):", nativeBalanceAfter - nativeBalanceBefore);
+        assertEq(nativeBalanceAfter - nativeBalanceBefore, 425_442_483_921_888_960);
+        console2.log(
+            "Native token earned (nativeBalanceAfter - nativeBalanceBefore):", nativeBalanceAfter - nativeBalanceBefore
+        );
         assertEq(wrappedBalanceAfter, wrappedBalanceBefore);
     }
 }
